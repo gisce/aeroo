@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+    <wizard string="Configure OpenOffice.org connection"
+            model="report.oo_config"
+            name="aeroo.config_wizard"
+            menu="False"
+            id="wizard_oo_config"
+            groups="base.group_system"/>
+
+    <menuitem name="Configure OpenOffice.org connection"
+                action="wizard_oo_config"
+                type="wizard"
+                id="menu_oo_config_wizard"
+                icon="STOCK_CONVERT"
+                parent="report_aeroo.menu_ir_action_aeroo_reports_xml"
+                groups="base.group_system"/>
+
+    </data>
+</openerp>
