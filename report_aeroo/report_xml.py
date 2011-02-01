@@ -38,12 +38,6 @@ from tools.translate import _
 import imp, sys, os
 from tools.config import config
 
-try:
-    from report_aeroo_ooo.DocumentConverter import DocumentConverter, DocumentConversionException
-except Exception, e:
-    DocumentConverter = False
-
-
 class report_stylesheets(osv.osv):
     '''
     Open ERP Model

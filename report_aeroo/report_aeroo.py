@@ -29,7 +29,7 @@
 #
 ##############################################################################
 
-import os
+import os, sys, traceback
 import tempfile
 import report
 from report.report_sxw import *
@@ -54,11 +54,6 @@ from genshi.template import NewTextTemplate
 import pooler
 import netsvc
 logger = netsvc.Logger()
-
-try:
-    from report_aeroo_ooo.DocumentConverter import DocumentConverter, DocumentConversionException
-except Exception, e:
-    DocumentConverter = False
 
 from ExtraFunctions import ExtraFunctions
 
@@ -128,7 +123,7 @@ class Aeroo_report(report_sxw):
         from math import ceil
         if not data:
             return ''
-        img = Image.open(StringIO.StringIO(base64.decodestring(data)))
+        img = Image.open(StringIO(base64.decodestring(data)))
         if img.format!='BMP':
             return ''
         data = base64.decodestring(data)[62:]
@@ -367,11 +362,10 @@ class Aeroo_report(report_sxw):
 
         ###### Detect report_aeroo_ooo module ######
         aeroo_ooo = False
-        if DocumentConverter:
-            cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
-            helper_module = cr.dictfetchone()
-            if helper_module['state']=='installed':
-                aeroo_ooo = True
+        cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
+        helper_module = cr.dictfetchone()
+        if helper_module['state'] in ('installed', 'to upgrade'):
+            aeroo_ooo = True
         ############################################
 
         oo_parser.localcontext['include_subreport'] = self._subreport(cr, uid, output='odt', aeroo_ooo=aeroo_ooo, context=context)
@@ -403,14 +397,16 @@ class Aeroo_report(report_sxw):
         try:
             data = basic.generate(**oo_parser.localcontext).render().getvalue()
         except Exception, e:
-            self.logger(str(e), netsvc.LOG_ERROR)
+            tb_s = reduce(lambda x, y: x+y, traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
+            self.logger(tb_s, netsvc.LOG_ERROR)
             for sub_report in self.oo_subreports:
                 os.unlink(sub_report)
-            return False, output
+            raise Exception(_("Aeroo Reports: Error while generating the report."), e, str(e), _("For more reference inspect error logs."))
+            #return False, output
 
         ######### OpenOffice extras #########
         DC = netsvc.SERVICES.get('openoffice')
-        if (output!=report_xml.in_format[3:] or self.oo_subreports) and DocumentConverter:
+        if (output!=report_xml.in_format[3:] or self.oo_subreports):
             if aeroo_ooo and DC:
                 try:
                     DC.putDocument(data)
@@ -426,7 +422,7 @@ class Aeroo_report(report_sxw):
                     self.oo_subreports = []
             else:
                 output=report_xml.in_format[3:]
-        elif not DocumentConverter and output in ('pdf', 'doc', 'xls'):
+        elif output in ('pdf', 'doc', 'xls'):
             output=report_xml.in_format[3:]
         #####################################
 
@@ -621,7 +617,7 @@ def new_register_all(db):
         try:
             OpenOffice_service(cr, host, port)
             netsvc.Logger().notifyChannel('report_aeroo', netsvc.LOG_INFO, "OpenOffice connection successfully established")
-        except DocumentConversionException, e:
+        except Exception, e:
             netsvc.Logger().notifyChannel('report_aeroo', netsvc.LOG_WARNING, e)
     ##############################################
 
