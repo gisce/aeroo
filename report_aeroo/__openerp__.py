@@ -31,7 +31,7 @@
     'website': 'http://www.alistek.com',
     'depends': ['base'],
     "init_xml" : [],
-    'update_xml': ["report_view.xml", "data/report_aeroo_data.xml"],
+    'update_xml': ["report_view.xml", "data/report_aeroo_data.xml", "security/ir.model.access.csv"],
     'installable': True,
     'active': False,
 }

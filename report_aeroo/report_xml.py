@@ -38,12 +38,6 @@ from tools.translate import _
 import imp, sys, os
 from tools.config import config
 
-try:
-    from report_aeroo_ooo.DocumentConverter import DocumentConverter, DocumentConversionException
-except Exception, e:
-    DocumentConverter = False
-
-
 class report_stylesheets(osv.osv):
     '''
     Open ERP Model
@@ -155,7 +149,7 @@ class report_xml(osv.osv):
             try:
                 OpenOffice_service(cr, host, port)
                 netsvc.Logger().notifyChannel('report_aeroo', netsvc.LOG_INFO, "OpenOffice.org connection successfully established")
-            except DocumentConversionException, e:
+            except Exception, e:
                 netsvc.Logger().notifyChannel('report_aeroo', netsvc.LOG_WARNING, e)
         ##############################################
 
@@ -179,7 +173,7 @@ class report_xml(osv.osv):
                     fp = tools.file_open(report[name[:-8]], mode='rb')
                     data = base64.encodestring(fp.read())
                 except:
-                    data = False
+                    data = ''
             res[report.id] = data
         return res
 

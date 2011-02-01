@@ -29,18 +29,24 @@
 from code128 import get_code
 from code39 import create_c39
 from EANBarCode import EanBarCode
-import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 def make_barcode(code, code_type='ean13', rotate=None, height=50, xw=1):
-    if code_type.lower()=='ean13':
-        bar=EanBarCode()
-        im = bar.getImage(code,height)
-    elif code_type.lower()=='code128':
-        im = get_code(code, xw, height)
-    elif code_type.lower()=='code39':
-        im = create_c39(height, xw, code)
+    if code:
+        if code_type.lower()=='ean13':
+            bar=EanBarCode()
+            im = bar.getImage(code,height)
+        elif code_type.lower()=='code128':
+            im = get_code(code, xw, height)
+        elif code_type.lower()=='code39':
+            im = create_c39(height, xw, code)
+    else:
+        return StringIO(), 'image/png'
 
-    tf = StringIO.StringIO()
+    tf = StringIO()
     try:
         if rotate!=None:
             im=im.rotate(int(rotate))

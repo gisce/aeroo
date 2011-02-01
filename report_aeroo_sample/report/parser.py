@@ -1,9 +1,7 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2010 Alistek Ltd. (http://www.alistek.com)
-# All Rights Reserved.
-#
-#                    General contacts <info@alistek.com>
+# Copyright (c) 2008-2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
+#                    General contacts <info@kndati.lv>
 #
 # WARNING: This program as such is intended to be used by professional
 # programmers who take the whole responsability of assessing all potential
@@ -14,7 +12,7 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 3
+# as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
