@@ -287,7 +287,7 @@ class Aeroo_report(report_sxw):
 
         oo_parser.localcontext['objects'] = objects
         oo_parser.localcontext['data'] = data
-        oo_parser.localcontext['user_lang'] = context['lang']
+        oo_parser.localcontext['user_lang'] = context.get('lang', False)
         if len(objects)>0:
             oo_parser.localcontext['o'] = objects[0]
         xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
@@ -354,7 +354,7 @@ class Aeroo_report(report_sxw):
 
         oo_parser.localcontext['objects'] = objects
         oo_parser.localcontext['data'] = data
-        oo_parser.localcontext['user_lang'] = context['lang']
+        oo_parser.localcontext['user_lang'] = context.get('lang', False)
         if len(objects)==1:
             oo_parser.localcontext['o'] = objects[0]
         xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
@@ -364,7 +364,7 @@ class Aeroo_report(report_sxw):
         aeroo_ooo = False
         cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
         helper_module = cr.dictfetchone()
-        if helper_module['state'] in ('installed', 'to upgrade'):
+        if helper_module and helper_module['state'] in ('installed', 'to upgrade'):
             aeroo_ooo = True
         ############################################
 
@@ -535,7 +535,7 @@ class Aeroo_report(report_sxw):
             else:
                 return super(Aeroo_report, self).create(cr, uid, ids, data, context)
         else:
-            raise 'Unknown Report Type'
+            raise Exception('Unknown Report Type')
         return fnct(cr, uid, ids, data, report_xml, context)
 
 class ReportTypeException(Exception):
