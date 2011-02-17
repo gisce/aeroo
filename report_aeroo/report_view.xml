@@ -50,9 +50,7 @@
                             <group col="2" colspan="2">
                                 <separator string="Attachments" colspan="2"/>
                                 <group colspan="2">
-                                    <group colspan="2">
-                                        <field name="attachment"/>
-                                    </group>
+                                    <field name="attachment"/>
                                 </group>
                                 <field name="attachment_use" colspan="2"/>
                             </group>

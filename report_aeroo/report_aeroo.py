@@ -288,7 +288,7 @@ class Aeroo_report(report_sxw):
 
         oo_parser.localcontext['objects'] = objects
         oo_parser.localcontext['data'] = data
-        oo_parser.localcontext['user_lang'] = context['lang']
+        oo_parser.localcontext['user_lang'] = context.get('lang', False)
         if len(objects)>0:
             oo_parser.localcontext['o'] = objects[0]
         xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
@@ -297,7 +297,7 @@ class Aeroo_report(report_sxw):
         oo_parser.localcontext['epl2_gw'] = self._epl2_gw
 
         self.epl_images = []
-        basic = NewTextTemplate(source=file_data)
+        basic = NewTextTemplate(source=base64.decodestring(file_data))
         #try:
         data = preprocess(basic.generate(**oo_parser.localcontext).render().decode('utf8').encode(report_xml.charset))
         #except Exception, e:
@@ -354,7 +354,7 @@ class Aeroo_report(report_sxw):
 
         oo_parser.localcontext['objects'] = objects
         oo_parser.localcontext['data'] = data
-        oo_parser.localcontext['user_lang'] = context['lang']
+        oo_parser.localcontext['user_lang'] = context.get('lang', False)
         if len(objects)==1:
             oo_parser.localcontext['o'] = objects[0]
         xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
@@ -364,7 +364,7 @@ class Aeroo_report(report_sxw):
         aeroo_ooo = False
         cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
         helper_module = cr.dictfetchone()
-        if helper_module['state'] in ('installed', 'to upgrade'):
+        if helper_module and helper_module['state'] in ('installed', 'to upgrade'):
             aeroo_ooo = True
         ############################################
 
@@ -533,7 +533,7 @@ class Aeroo_report(report_sxw):
             else:
                 return super(Aeroo_report, self).create(cr, uid, ids, data, context)
         else:
-            raise 'Unknown Report Type'
+            raise Exception('Unknown Report Type')
         return fnct(cr, uid, ids, data, report_xml, context)
 
 class ReportTypeException(Exception):
@@ -541,96 +541,4 @@ class ReportTypeException(Exception):
       self.parameter = value
     def __str__(self):
       return repr(self.parameter)
-
-#########################################################################
-
-#import imp, sys
-#from tools.config import config
-
-#def load_from_file(path, dbname, key):
-#    class_inst = None
-#    expected_class = 'Parser'
-
-#    try:
-#        if path.find(config['addons_path'])==-1:
-#            filepath=config['addons_path']+os.path.sep+path
-#        filepath = os.path.normpath(filepath)
-#        if not os.path.lexists(filepath):
-#            filepath = os.path.normpath(config['root_path']+os.path.sep+path)
-#        sys.path.append(os.path.dirname(filepath))
-#        mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
-#        mod_name = '%s_%s_%s' % (dbname,mod_name,key)
-
-#        if file_ext.lower() == '.py':
-#            py_mod = imp.load_source(mod_name, filepath)
-
-#        elif file_ext.lower() == '.pyc':
-#            py_mod = imp.load_compiled(mod_name, filepath)
-
-#        if expected_class in dir(py_mod):
-#            class_inst = py_mod.Parser
-#        return class_inst
-#    except Exception, e:
-#        return None
-
-#def load_from_source(source):
-#    expected_class = 'Parser'
-#    context = {'Parser':None}
-#    try:
-#        exec source in context
-#        return context['Parser']
-#    except Exception, e:
-#        return None
-
-#def delete_report_service(name):
-#    name = 'report.%s' % name
-#    if netsvc.Service.exists( name ):  # change for OpenERP 6.0 - Service class usage
-#        netsvc.Service.remove( name ) # change for OpenERP 6.0 - Service class usage
-
-#def register_report(cr, name, model, tmpl_path, parser):
-#    name = 'report.%s' % name
-#    if netsvc.Service.exists( name ):  # change for OpenERP 6.0 - Service class usage
-#        netsvc.Service.remove( name ) # change for OpenERP 6.0 - Service class usage
-#    Aeroo_report(cr, name, model, tmpl_path, parser=parser)
-
-#old_register_all = report.interface.register_all
-#def new_register_all(db):
-#    value = old_register_all(db)
-
-#    cr = db.cursor()
-
-    ########### Run OpenOffice service ###########
-#    try:
-#        from report_aeroo_ooo.report import OpenOffice_service
-#    except Exception, e:
-#        OpenOffice_service = False
-
-#    if OpenOffice_service:
-#        cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
-#        helper_module = cr.dictfetchone()
-#        helper_installed = helper_module['state']=='installed'
-
-#    if OpenOffice_service and helper_installed:
-#        cr.execute("SELECT host, port FROM oo_config")
-#        host, port = cr.fetchone()
-#        try:
-#            OpenOffice_service(cr, host, port)
-#            netsvc.Logger().notifyChannel('report_aeroo', netsvc.LOG_INFO, "OpenOffice connection successfully established")
-#        except DocumentConversionException, e:
-#            netsvc.Logger().notifyChannel('report_aeroo', netsvc.LOG_WARNING, e)
-    ##############################################
-
-#    cr.execute("SELECT * FROM ir_act_report_xml WHERE report_type = 'aeroo' ORDER BY id") # change for OpenERP 6.0
-#    records = cr.dictfetchall()
-#    for record in records:
-#        parser=rml_parse
-#        if record['parser_state']=='loc' and record['parser_loc']:
-#            parser=load_from_file(record['parser_loc'], db.dbname, record['id']) or parser
-#        elif record['parser_state']=='def' and record['parser_def']:
-#            parser=load_from_source("from report import report_sxw\n"+record['parser_def']) or parser
-#        register_report(cr, record['report_name'], record['model'], record['report_rml'], parser)
-#    cr.close()
-#    return value
-
-#report.interface.register_all = new_register_all
 

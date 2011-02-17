@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2009-2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
+# Copyright (c) 2009-2011 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
 #                    General contacts <info@kndati.lv>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -36,6 +36,7 @@ import encodings
 from tools.translate import _
 
 import imp, sys, os
+import zipimport
 from tools.config import config
 
 class report_stylesheets(osv.osv):
@@ -90,24 +91,26 @@ class report_xml(osv.osv):
         expected_class = 'Parser'
 
         try:
-            if path.find(config['addons_path'])==-1:
+            mod_path = config['addons_path']+os.path.sep+path.split(os.path.sep)[0]
+            if os.path.lexists(mod_path):
                 filepath=config['addons_path']+os.path.sep+path
-            filepath = os.path.normpath(filepath)
-            if not os.path.lexists(filepath):
-                filepath = os.path.normpath(config['root_path']+os.path.sep+path)
-            sys.path.append(os.path.dirname(filepath))
-            mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
-            mod_name = '%s_%s_%s' % (dbname,mod_name,key)
+                filepath = os.path.normpath(filepath)
+                sys.path.append(os.path.dirname(filepath))
+                mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
+                mod_name = '%s_%s_%s' % (dbname,mod_name,key)
 
-            if file_ext.lower() == '.py':
-                py_mod = imp.load_source(mod_name, filepath)
+                if file_ext.lower() == '.py':
+                    py_mod = imp.load_source(mod_name, filepath)
 
-            elif file_ext.lower() == '.pyc':
-                py_mod = imp.load_compiled(mod_name, filepath)
+                elif file_ext.lower() == '.pyc':
+                    py_mod = imp.load_compiled(mod_name, filepath)
 
-            if expected_class in dir(py_mod):
-                class_inst = py_mod.Parser
-            return class_inst
+                if expected_class in dir(py_mod):
+                    class_inst = py_mod.Parser
+                return class_inst
+            elif os.path.lexists(mod_path+'.zip'):
+                zimp = zipimport.zipimporter(mod_path+'.zip')
+                return zimp.load_module(path.split(os.path.sep)[0]).parser.Parser
         except Exception, e:
             return None
 
@@ -218,7 +221,7 @@ class report_xml(osv.osv):
             ('parser','Parser'),
         ],'Template source', select=True),
         'parser_def': fields.text('Parser Definition'),
-        'parser_loc':fields.char('Parser location', size=128),
+        'parser_loc':fields.char('Parser location', size=128, help="Path to the parser location. Beginning of the path must be start with the module name!\nLike this: {module name}/{path to the parser.py file}"),
         'parser_state':fields.selection([
             ('default',_('Default')),
             ('def',_('Definition')),

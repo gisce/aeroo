@@ -32,13 +32,14 @@ from domain_parser import domain2statement
 from currency_to_text import currency_to_text
 import base64
 import StringIO
-from PIL import Image
+import Image
 import pooler
 import time
 import osv
 from report import report_sxw
 from tools.translate import _
 import netsvc
+from tools.safe_eval import safe_eval as eval
 
 class ExtraFunctions(object):
     """ This class contains some extra functions which
