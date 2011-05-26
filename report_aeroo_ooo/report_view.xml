@@ -2,6 +2,18 @@
 <openerp>
     <data>
 
+    <record id="act_report_xml_view_aeroo_ooo" model="ir.ui.view">
+        <field name="name">ir.actions.report.xml.aeroo.form1</field>
+        <field name="model">ir.actions.report.xml</field>
+        <field name="type">form</field>
+		<field name="inherit_id" ref="report_aeroo.act_report_xml_view_aeroo"/>
+        <field name="arch" type="xml">
+            <field name="active" position="before">
+                <field name="process_sep"/>
+            </field>
+        </field>
+    </record>
+
     <wizard string="Configure OpenOffice.org connection"
             model="report.oo_config"
             name="aeroo.config_wizard"

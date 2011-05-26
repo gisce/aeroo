@@ -1,7 +1,7 @@
 ##############################################################################
 #
-# Copyright (c) 2009-2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
 # programmers who take the whole responsability of assessing all potential
@@ -97,13 +97,16 @@ class report_xml(osv.osv):
     def _report_content(self, cursor, user, ids, name, arg, context=None):
         res = {}
         for report in self.browse(cursor, user, ids, context=context):
-            data = report[name + '_data'] and base64.decodestring(report[name + '_data'])
-            if not data and report[name[:-8]]:
+            data = report[name + '_data']
+            if report.report_type=='aeroo' and report.tml_source=='file' or not data and report[name[:-8]]:
                 try:
                     fp = tools.file_open(report[name[:-8]], mode='rb')
-                    data = fp.read()
+                    data = base64.encodestring(fp.read())
                 except:
                     data = False
+                finally:
+                    if fp:
+                        fp.close()
             res[report.id] = data
         return res
 
@@ -159,6 +162,8 @@ class report_xml(osv.osv):
         'report_sxw_content': fields.function(_report_content,
             fnct_inv=_report_content_inv, method=True,
             type='binary', string='SXW content',),
+        'active':fields.boolean('Active'),
+        
     }
 
     def unlink(self, cr, uid, ids, context=None):
@@ -255,7 +260,6 @@ class report_xml(osv.osv):
         return res and res[0] or False
 
     _defaults = {
-        #'report_type' : lambda*a: 'oo-odt',
         'tml_source': lambda*a: 'database',
         'in_format' : lambda*a: 'oo-odt',
         'out_format' : _get_default_outformat,
@@ -266,18 +270,9 @@ class report_xml(osv.osv):
         'parser_def':lambda*a: """class Parser(report_sxw.rml_parse):
     def __init__(self, cr, uid, name, context):
         super(Parser, self).__init__(cr, uid, name, context)
-        self.localcontext.update({})"""
+        self.localcontext.update({})""",
+        'active' : lambda*a: True,
     }
-
-    #def _object_check(self, cr, uid, ids):
-    #    for r in self.browse(cr, uid, ids, {}):
-    #        if not self.pool.get('ir.model').search(cr, uid, [('model','=',r.model)]):
-    #            return False
-    #    return True
-
-    #_constraints = [
-    #        (_object_check, _('Object model is not correct')+' !\n'+_('Please check "Object" field')+' !', ['model'])
-    #    ]
 
 report_xml()
 

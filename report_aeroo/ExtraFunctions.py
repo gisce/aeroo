@@ -1,7 +1,7 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2009 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
 # programmers who take the whole responsability of assessing all potential
@@ -79,6 +79,7 @@ class ExtraFunctions(object):
             'chunks':self._chunks,
             'browse':self._browse,
             'field_size':self._field_size,
+            'field_accuracy':self._field_accuracy,
             'bool_as_icon':self._bool_as_icon,
             'time':time,
             'report_xml': self._get_report_xml(),
@@ -233,11 +234,31 @@ class ExtraFunctions(object):
 
     def _field_size(self, obj, field):
         try:
-            if getattr(obj, field):
-                size = self.pool.get(obj._table_name)._columns[field].size
+            if isinstance(obj, report_sxw.browse_record_list):
+                obj = obj[0]
+            if isinstance(obj, (str,unicode)):
+                model = obj
+            else:
+                model = obj._table_name
+            if isinstance(obj, (str,unicode)) or hasattr(obj, field):
+                size = self.pool.get(model)._columns[field].size
                 return size
-        except Exception:
+        except Exception, e:
             return ''
+
+    def _field_accuracy(self, obj, field):
+        try:
+            if isinstance(obj, report_sxw.browse_record_list):
+                obj = obj[0]
+            if isinstance(obj, (str,unicode)):
+                model = obj
+            else:
+                model = obj._table_name
+            if isinstance(obj, (str,unicode)) or hasattr(obj, field):
+                digits = self.pool.get(model)._columns[field].digits
+                return digits or [16,2]
+        except Exception:
+            return []
 
     def _get_selection_items(self, kind='items'):
         def get_selection_item(obj, field, value=None):

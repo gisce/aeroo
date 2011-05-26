@@ -54,3 +54,14 @@ class report_oo_config(osv.osv):
 
 report_oo_config()
 
+class report_xml(osv.osv):
+    _name = 'ir.actions.report.xml'
+    _inherit = 'ir.actions.report.xml'
+
+    _columns = {
+        'process_sep':fields.boolean('Process separately'),
+        
+    }
+
+report_xml()
+

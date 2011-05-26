@@ -96,7 +96,6 @@ class aeroo_config_wizard(wizard.interface):
         try:
             fp = tools.file_open('report_aeroo_ooo/test_temp.odt', mode='rb')
             file_data = fp.read()
-            #DC = DocumentConverter(data['form']['host'], data['form']['port'])
             DC = netsvc.SERVICES.setdefault('openoffice', \
                     OpenOffice_service(cr, data['form']['host'], data['form']['port']))
             DC.putDocument(file_data)
