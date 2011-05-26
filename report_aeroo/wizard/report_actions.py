@@ -1,7 +1,7 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2008-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
 # programmers who take the whole responsability of assessing all potential
@@ -31,6 +31,10 @@ import pooler
 import ir
 from tools.translate import _
 
+special_reports = [
+    'printscreen.list'
+]
+
 class report_actions_wizard(wizard.interface):
     '''
     Add Print Button
@@ -41,9 +45,14 @@ class report_actions_wizard(wizard.interface):
         <field name="open_action"/>
     </form>'''
 
-    ex_form = '''<?xml version="1.0"?>
+    exist_form = '''<?xml version="1.0"?>
     <form string="Add Print Button">
         <label string="Report Action already exist for this report."/>
+    </form>'''
+
+    exception_form = '''<?xml version="1.0"?>
+    <form string="Add Print Button">
+        <label string="Can not be create print button for the Special report."/>
     </form>'''
 
     done_form = '''<?xml version="1.0"?>
@@ -68,6 +77,8 @@ class report_actions_wizard(wizard.interface):
     def _check(self, cr, uid, data, context):
         pool = pooler.get_pool(cr.dbname)
         report = pool.get(data['model']).browse(cr, uid, data['id'], context=context)
+        if report.report_name in special_reports:
+            return 'exception'
         ids = pool.get('ir.values').search(cr, uid, [('value','=',report.type+','+str(data['id']))])
         if not ids:
 	        return 'add'
@@ -99,7 +110,11 @@ class report_actions_wizard(wizard.interface):
         },
         'exist': {
             'actions': [],
-            'result': {'type': 'form', 'arch': ex_form, 'fields': {}, 'state': (('end', _('_Close')),)},
+            'result': {'type': 'form', 'arch': exist_form, 'fields': {}, 'state': (('end', _('_Close')),)},
+        },
+        'exception': {
+            'actions': [],
+            'result': {'type': 'form', 'arch': exception_form, 'fields': {}, 'state': (('end', _('_Close')),)},
         },
         'process': {
             'actions': [_do_action],

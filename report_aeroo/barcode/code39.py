@@ -1,7 +1,7 @@
 # Copyright (c) 2008 marscel.wordpress.com
 #
-# Copyright (c) 2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2011 SIA "KN dati". (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 
 # Code39.py v1
 # Requires Python and Python Imaging Library (PIL), 
@@ -14,7 +14,8 @@
 # a min line width of 2px with "Hello World" encoded as "*HELLO WORLD*" in Code 39
 
 import Image, ImageDraw, ImageFont, sys
-from tools import config
+from tools import config, ustr
+import os
 
 marginx = 10
 marginy = 10
@@ -77,13 +78,13 @@ def create_c39(height, smallest, text):
         char = machinetext[i].capitalize()
         i = i + 1
         try:
-            map = charmap[char]
-            if len(map) != 9:
+            cmap = charmap[char]
+            if len(cmap) != 9:
                 continue
             
             j = 0
             while j < 9:
-                seg = int(map[j])
+                seg = int(cmap[j])
                 
                 if seg == 0 or seg == 1:
                     pixel_length = pixel_length + smallest
@@ -143,7 +144,15 @@ def create_c39(height, smallest, text):
                 j = j + 1            
         i = i + 1
 
-    font = ImageFont.truetype(config['addons_path']+"/report_aeroo/barcode/FreeMonoBold.ttf", fontsize)
+    ad = os.path.abspath(os.path.join(ustr(config['root_path']), u'addons'))
+    mod_path_list = map(lambda m: os.path.abspath(ustr(m.strip())), config['addons_path'].split(','))
+    mod_path_list.append(ad)
+
+    for mod_path in mod_path_list:
+        font_file = mod_path+os.path.sep+ \
+                    "report_aeroo"+os.path.sep+"barcode"+os.path.sep+"FreeMonoBold.ttf"
+        if os.path.lexists(font_file):
+            font = ImageFont.truetype(font_file, fontsize)
     
     draw.text((pixel_length/2 - len(newtext)*(fontsize/2)/2-len(newtext), height+fontsize), newtext, font=font, fill=0)
     

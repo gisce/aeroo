@@ -4,7 +4,7 @@
 #                                                                       #
 # Copyright (C) 2009  Domsense s.r.l.                                   #
 # @authors: Simone Orsi													#				       
-# Copyright (C) 2009-2010  KN dati, Ltd                                 #
+# Copyright (C) 2009-2011  Alistek, Ltd                                 #
 #                                                                       #
 #This program is free software: you can redistribute it and/or modify   #
 #it under the terms of the GNU General Public License as published by   #
@@ -24,10 +24,10 @@
     'name': 'Aeroo Reports',
     'version': '1.0',
     'category': 'Generic Modules/Aeroo Reporting',
-    'description': """ Make possible to easily create complicated reports with OOo.
-                    Requires "relatorio", "openoffice.org", "openoffice-python" to be installed.
+    'description': """Gives possibility to easily create complicated reports.
+                    Requires "aeroolib" to be installed.
                     """,
-    'author': 'KN dati Ltd, Simone Orsi - Domsense',
+    'author': 'Alistek Ltd, Simone Orsi - Domsense',
     'website': 'http://www.alistek.com',
     'depends': ['base'],
     "init_xml" : [],

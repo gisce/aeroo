@@ -101,11 +101,11 @@ class DocumentConverter:
         try:
             self._context = self._resolver.resolve("uno:socket,host=%s,port=%s;urp;StarOffice.ComponentContext" % (host, port))
         except IllegalArgumentException, exception:
-            raise DocumentConversionException, "The url is invalid (%s)" % exception
+            raise DocumentConversionException("The url is invalid (%s)" % exception)
         except NoConnectException, exception:
-            raise DocumentConversionException, "Failed to connect to OpenOffice.org on host %s, port %s. %s" % (host, port, exception)
+            raise DocumentConversionException("Failed to connect to OpenOffice.org on host %s, port %s. %s" % (host, port, exception))
         except ConnectionSetupException, exception:
-            raise DocumentConversionException, "Not possible to accept on a local resource (%s)" % exception
+            raise DocumentConversionException("Not possible to accept on a local resource (%s)" % exception)
         #self.desktop = self._context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", self._context)
 
         #self.inputStream = self.serviceManager.createInstanceWithContext("com.sun.star.io.SequenceInputStream", self.localContext)
@@ -178,6 +178,14 @@ class DocumentConverter:
 
             os.unlink(subreport)
 
+    def joinDocuments(self, docs):
+        while(docs):
+            subStream = self.serviceManager.createInstanceWithContext("com.sun.star.io.SequenceInputStream", self.localContext)
+            subStream.initialize((uno.ByteSequence(docs.pop()),))
+            try:
+                self.document.Text.getEnd().insertDocumentFromURL('private:stream', self._toProperties(InputStream = subStream, FilterName = "writer8"))
+            except Exception, ex:
+                print (_("Error inserting file %s on the OpenOffice document: %s") % (docs, ex))
 
     def convertByPath(self, inputFile, outputFile):
         inputUrl = self._toFileUrl(inputFile)

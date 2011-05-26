@@ -1,7 +1,7 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2008-2011 SIA "KN dati". (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
 # programmers who take the whole responsability of assessing all potential
@@ -54,7 +54,7 @@ class report_actions_remove_wizard(wizard.interface):
         pool = pooler.get_pool(cr.dbname)
         report = pool.get(data['model']).browse(cr, uid, data['id'], context=context)
         res = ir.ir_get(cr, uid, 'action', 'client_print_multi', [report.model])
-        id = res[0][0]
+        id = filter(lambda r: r[1]==report.report_name, res)[0][0]
         res = ir.ir_del(cr, uid, id)
         return {}
 

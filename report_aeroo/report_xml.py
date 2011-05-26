@@ -1,7 +1,7 @@
 ##############################################################################
 #
-# Copyright (c) 2009-2011 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2009-2011 SIA "KN dati". (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
 # programmers who take the whole responsability of assessing all potential
@@ -91,26 +91,30 @@ class report_xml(osv.osv):
         expected_class = 'Parser'
 
         try:
-            mod_path = config['addons_path']+os.path.sep+path.split(os.path.sep)[0]
-            if os.path.lexists(mod_path):
-                filepath=config['addons_path']+os.path.sep+path
-                filepath = os.path.normpath(filepath)
-                sys.path.append(os.path.dirname(filepath))
-                mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
-                mod_name = '%s_%s_%s' % (dbname,mod_name,key)
+            ad = os.path.abspath(os.path.join(tools.ustr(config['root_path']), u'addons'))
+            mod_path_list = map(lambda m: os.path.abspath(tools.ustr(m.strip())), config['addons_path'].split(','))
+            mod_path_list.append(ad)
 
-                if file_ext.lower() == '.py':
-                    py_mod = imp.load_source(mod_name, filepath)
+            for mod_path in mod_path_list:
+                if os.path.lexists(mod_path+os.path.sep+path.split(os.path.sep)[0]):
+                    filepath=mod_path+os.path.sep+path
+                    filepath = os.path.normpath(filepath)
+                    sys.path.append(os.path.dirname(filepath))
+                    mod_name,file_ext = os.path.splitext(os.path.split(filepath)[-1])
+                    mod_name = '%s_%s_%s' % (dbname,mod_name,key)
 
-                elif file_ext.lower() == '.pyc':
-                    py_mod = imp.load_compiled(mod_name, filepath)
+                    if file_ext.lower() == '.py':
+                        py_mod = imp.load_source(mod_name, filepath)
 
-                if expected_class in dir(py_mod):
-                    class_inst = py_mod.Parser
-                return class_inst
-            elif os.path.lexists(mod_path+'.zip'):
-                zimp = zipimport.zipimporter(mod_path+'.zip')
-                return zimp.load_module(path.split(os.path.sep)[0]).parser.Parser
+                    elif file_ext.lower() == '.pyc':
+                        py_mod = imp.load_compiled(mod_name, filepath)
+
+                    if expected_class in dir(py_mod):
+                        class_inst = py_mod.Parser
+                    return class_inst
+                elif os.path.lexists(mod_path+os.path.sep+path.split(os.path.sep)[0]+'.zip'):
+                    zimp = zipimport.zipimporter(mod_path+os.path.sep+path.split(os.path.sep)[0]+'.zip')
+                    return zimp.load_module(path.split(os.path.sep)[0]).parser.Parser
         except Exception, e:
             return None
 
@@ -134,7 +138,13 @@ class report_xml(osv.osv):
             netsvc.Service.remove( name ) # change for OpenERP 6.0 - Service class usage
         Aeroo_report(cr, name, model, tmpl_path, parser=parser)
 
+    def unregister_report(self, name):
+        name = 'report.%s' % name
+        if netsvc.Service.exists( name ):
+            netsvc.Service.remove( name )
+
     def register_all(self, cr):
+        super(report_xml, self).register_all(cr)
         ########### Run OpenOffice service ###########
         try:
             from report_aeroo_ooo.report import OpenOffice_service
@@ -170,13 +180,16 @@ class report_xml(osv.osv):
     def _report_content(self, cursor, user, ids, name, arg, context=None):
         res = {}
         for report in self.browse(cursor, user, ids, context=context):
-            data = report[name + '_data']# and base64.decodestring(report[name + '_data'])
-            if not data and report[name[:-8]]:
+            data = report[name + '_data']
+            if report.report_type=='aeroo' and report.tml_source=='file' or not data and report[name[:-8]]:
                 try:
                     fp = tools.file_open(report[name[:-8]], mode='rb')
                     data = base64.encodestring(fp.read())
                 except:
-                    data = ''
+                    data = False
+                finally:
+                    if fp:
+                        fp.close()
             res[report.id] = data
         return res
 
@@ -232,6 +245,7 @@ class report_xml(osv.osv):
         'report_sxw_content': fields.function(_report_content,
             fnct_inv=_report_content_inv, method=True,
             type='binary', string='SXW content',),
+        'active':fields.boolean('Active'),
     }
 
     def unlink(self, cr, uid, ids, context=None):
@@ -248,6 +262,7 @@ class report_xml(osv.osv):
                                                                             ])
             if ir_value_ids:
                 self.pool.get('ir.values').unlink(cr, uid, ir_value_ids)
+                self.unregister_report(r['report_name'])
         self.pool.get('ir.model.data')._unlink(cr, uid, 'ir.actions.report.xml', ids)
         ####################################
         res = super(report_xml, self).unlink(cr, uid, ids, context)
@@ -258,6 +273,7 @@ class report_xml(osv.osv):
         #    raise osv.except_osv(_('Object model is not correct !'),_('Please check "Object" field !') )
         if 'report_type' in vals and vals['report_type'] == 'aeroo':
             parser=rml_parse
+            vals['auto'] = False
             if vals['parser_state']=='loc' and vals['parser_loc']:
                 parser=self.load_from_file(vals['parser_loc'], cr.dbname, vals['name'].lower().replace(' ','_')) or parser
             elif vals['parser_state']=='def' and vals['parser_def']:
@@ -265,7 +281,8 @@ class report_xml(osv.osv):
 
             res_id = super(report_xml, self).create(cr, user, vals, context)
             try:
-                self.register_report(cr, vals['report_name'], vals['model'], vals.get('report_rml', False), parser)
+                if vals['active']:
+                    self.register_report(cr, vals['report_name'], vals['model'], vals.get('report_rml', False), parser)
             except Exception, e:
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))
             return res_id
@@ -313,7 +330,10 @@ class report_xml(osv.osv):
 
             res = super(report_xml, self).write(cr, user, ids, vals, context)
             try:
-                self.register_report(cr, report_name, vals.get('model', record['model']), vals.get('report_rml', record['report_rml']), parser)
+                if vals.get('active', record['active']):
+                    self.register_report(cr, report_name, vals.get('model', record['model']), vals.get('report_rml', record['report_rml']), parser)
+                else:
+                    self.unregister_report(report_name)
             except Exception, e:
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))
             return res
@@ -321,35 +341,31 @@ class report_xml(osv.osv):
         res = super(report_xml, self).write(cr, user, ids, vals, context)
         return res
 
+    def _set_auto_false(self, cr, uid, ids=[]):
+        if not ids:
+            ids = self.search(cr, uid, [('report_type','=','aeroo'),('auto','=','True')])
+        for id in ids:
+            self.write(cr, uid, id, {'auto':False})
+
     def _get_default_outformat(self, cr, uid, context):
         obj = self.pool.get('report.mimetypes')
         res = obj.search(cr, uid, [('code','=','oo-odt')])
         return res and res[0] or False
 
     _defaults = {
-        #'report_type' : lambda*a: 'oo-odt',
-        'tml_source': lambda*a: 'database',
-        'in_format' : lambda*a: 'oo-odt',
+        'tml_source': 'database',
+        'in_format' : 'oo-odt',
         'out_format' : _get_default_outformat,
-        'charset': lambda*a: 'ascii',
-        'styles_mode' : lambda*a: 'default',
-        'preload_mode': lambda*a: 'static',
-        'parser_state': lambda*a: 'default',
-        'parser_def':lambda*a: """class Parser(report_sxw.rml_parse):
+        'charset': 'ascii',
+        'styles_mode' : 'default',
+        'preload_mode': 'static',
+        'parser_state': 'default',
+        'parser_def': """class Parser(report_sxw.rml_parse):
     def __init__(self, cr, uid, name, context):
         super(Parser, self).__init__(cr, uid, name, context)
-        self.localcontext.update({})"""
+        self.localcontext.update({})""",
+        'active' : True,
     }
-
-    #def _object_check(self, cr, uid, ids):
-    #    for r in self.browse(cr, uid, ids, {}):
-    #        if not self.pool.get('ir.model').search(cr, uid, [('model','=',r.model)]):
-    #            return False
-    #    return True
-
-    #_constraints = [
-    #        (_object_check, _('Object model is not correct')+' !\n'+_('Please check "Object" field')+' !', ['model'])
-    #    ]
 
 report_xml()
 

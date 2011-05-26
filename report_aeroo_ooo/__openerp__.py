@@ -20,11 +20,14 @@
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.  #
 #########################################################################
 
-{
+{ 
     'name': 'Aeroo Reports - OpenOffice Helper Addon',
     'version': '1.0',
     'category': 'Generic Modules/Aeroo Reporting',
-    'author': 'KN dati Ltd',
+    'description': """ Make possible used OpenOffice features for reports.
+                    Requires "openoffice.org", "openoffice-python" to be installed.
+                    """,
+    'author': 'Alistek Ltd',
     'website': 'http://www.alistek.com',
     'depends': ['base','report_aeroo'],
     "init_xml" : [],

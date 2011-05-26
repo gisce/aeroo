@@ -117,7 +117,15 @@ class EanBarCode:
       im = Image.new("1",(len(bits)+position,height))
       
       # Load font
-      font = ImageFont.load(config['addons_path']+"/report_aeroo/barcode/courB08.pil")
+      ad = os.path.abspath(os.path.join(ustr(config['root_path']), u'addons'))
+      mod_path_list = map(lambda m: os.path.abspath(ustr(m.strip())), config['addons_path'].split(','))
+      mod_path_list.append(ad)
+
+      for mod_path in mod_path_list:
+          font_file = mod_path+os.path.sep+ \
+                      "report_aeroo"+os.path.sep+"barcode"+os.path.sep+"FreeMonoBold.ttf"
+          if os.path.lexists(font_file):
+              font = ImageFont.truetype(font_file, fontsize)
       
       # Create drawer
       draw = ImageDraw.Draw(im)

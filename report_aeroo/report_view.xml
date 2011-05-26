@@ -56,7 +56,6 @@
                             </group>
                             <group col="2" colspan="2">
                                 <separator string="Miscellaneous" colspan="2"/>
-                                <field name="preload_mode" attrs="{'invisible': [('in_format','=','genshi-raw'),('tml_source','=','parser')]}"/>
                                 <field name="multi" colspan="2"/>
                             </group>
                         </page>
@@ -69,6 +68,12 @@
 		                        <field name="parser_def" nolabel="1"/>
                             </group>
 	                        <field name="parser_loc" attrs="{'invisible': [('parser_state','&lt;&gt;','loc')],'required': [('parser_state','=','loc')]}"/>
+                        </page>
+                        <page string="Advanced">
+                            <group colspan="4" col="6">
+                                <field name="preload_mode" attrs="{'invisible': ['|',('in_format','=','genshi-raw'),('tml_source','=','parser')]}"/>
+                                <field name="active" select="1"/>
+                            </group>
                         </page>
                         <page string="Security">
                             <separator string="Groups" colspan="4"/>
@@ -187,6 +192,8 @@
 
     <wizard string="Add Print Button" model="ir.actions.report.xml" name="aeroo.report_actions" menu="True" id="wizard_oo_report_actions" />
     <wizard string="Remove Print Button" model="ir.actions.report.xml" name="aeroo.report_actions_remove" menu="True" id="wizard_oo_report_actions_remove" />
+
+    <function model="ir.actions.report.xml" name="_set_auto_false"/>
 
     <menuitem name="Aeroo Reports" id="menu_ir_action_aeroo_reports_xml" parent="base.menu_custom"/>
 

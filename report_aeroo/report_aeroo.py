@@ -2,8 +2,8 @@
 
 ##############################################################################
 #
-# Copyright (c) 2009-2010 KN dati, SIA. (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 # Copyright (C) 2009  Domsense s.r.l.                                   
 #
 # WARNING: This program as such is intended to be used by professional
@@ -32,7 +32,8 @@
 import os, sys, traceback
 import tempfile
 import report
-from report.report_sxw import *
+from report.report_sxw import report_sxw, report_rml, browse_record_list, _fields_process
+from report.pyPdf import PdfFileWriter, PdfFileReader
 #import zipfile
 try:
     from cStringIO import StringIO
@@ -42,6 +43,7 @@ from xml.dom import minidom
 import base64
 from osv import osv
 from tools.translate import _
+import tools
 import time
 import re
 import copy
@@ -92,8 +94,10 @@ class Aeroo_report(report_sxw):
         report_xml_ids = ir_obj.search(cr, 1, [('report_name', '=', name[7:])])
         if report_xml_ids:
             report_xml = ir_obj.browse(cr, 1, report_xml_ids[0])
+        else:
+            report_xml = False
 
-        if report_xml.preload_mode == 'preload':
+        if report_xml and report_xml.preload_mode == 'preload':
             file_data = report_xml.report_sxw_content
             if not file_data:
                 self.logger("template is not defined in %s (%s) !" % (name, table), netsvc.LOG_WARNING)
@@ -104,6 +108,12 @@ class Aeroo_report(report_sxw):
                 style_io=self.get_styles_file(cr, 1, report_xml)
             if template_io:
                 self.serializer = OOSerializer(template_io, oo_styles=style_io)
+
+    def getObjects_mod(self, cr, uid, ids, rep_type, context):
+        table_obj = pooler.get_pool(cr.dbname).get(self.table)
+        if rep_type=='aeroo':
+            return table_obj.browse(cr, uid, ids, list_class=browse_record_list, context=context)
+        return table_obj.browse(cr, uid, ids, list_class=browse_record_list, context=context, fields_process=_fields_process)
 
     ##### Counter functions #####
     def _def_inc(self, name, start=0, interval=1):
@@ -277,15 +287,10 @@ class Aeroo_report(report_sxw):
         if not context:
             context={}
         context = context.copy()
-        objects = self.getObjects(cr, uid, ids, context)
+        objects = self.getObjects_mod(cr, uid, ids, report_xml.report_type, context)
         oo_parser = self.parser(cr, uid, self.name2, context=context)
         oo_parser.objects = objects
         self.set_xml_data_fields(objects, oo_parser) # Get/Set XML
-        file_data = self.get_other_template(cr, uid, data, oo_parser) or report_xml.report_sxw_content # Get other Tamplate
-        ################################################
-        if not file_data:
-            return False, output
-
         oo_parser.localcontext['objects'] = objects
         oo_parser.localcontext['data'] = data
         oo_parser.localcontext['user_lang'] = context.get('lang', False)
@@ -293,6 +298,11 @@ class Aeroo_report(report_sxw):
             oo_parser.localcontext['o'] = objects[0]
         xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
         oo_parser.localcontext.update(xfunc.functions)
+        file_data = self.get_other_template(cr, uid, data, oo_parser) or report_xml.report_sxw_content # Get other Tamplate
+        ################################################
+        if not file_data:
+            return False, output
+
         oo_parser.localcontext['include_subreport'] = self._subreport(cr, uid, output='raw', aeroo_ooo=False, context=context)
         oo_parser.localcontext['epl2_gw'] = self._epl2_gw
 
@@ -308,6 +318,17 @@ class Aeroo_report(report_sxw):
             output = report_xml.content_fname
         return data, output
 
+    def _aeroo_ooo_test(self, cr):
+        '''
+        Detect report_aeroo_ooo module
+        '''
+        aeroo_ooo = False
+        cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
+        helper_module = cr.dictfetchone()
+        if helper_module and helper_module['state'] in ('installed', 'to upgrade'):
+            aeroo_ooo = True
+        return aeroo_ooo
+
     def create_aeroo_report(self, cr, uid, ids, data, report_xml, context=None, output='odt'):
         """ Returns an aeroo report generated with aeroolib
         """
@@ -319,11 +340,19 @@ class Aeroo_report(report_sxw):
             context['model'] = data['model']
             context['ids'] = ids
         
-        objects = not context.get('no_objects', False) and self.getObjects(cr, uid, ids, context) or []
+        objects = not context.get('no_objects', False) and self.getObjects_mod(cr, uid, ids, report_xml.report_type, context) or []
         oo_parser = self.parser(cr, uid, self.name2, context=context)
 
         oo_parser.objects = objects
         self.set_xml_data_fields(objects, oo_parser) # Get/Set XML
+
+        oo_parser.localcontext['objects'] = objects
+        oo_parser.localcontext['data'] = data
+        oo_parser.localcontext['user_lang'] = context.get('lang', False)
+        if len(objects)==1:
+            oo_parser.localcontext['o'] = objects[0]
+        xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
+        oo_parser.localcontext.update(xfunc.functions)
 
         style_io=self.get_styles_file(cr, uid, report_xml, context)
         if report_xml.tml_source in ('file', 'database'):
@@ -352,22 +381,7 @@ class Aeroo_report(report_sxw):
 
         #basic = Template(source=template_io, serializer=serializer)
 
-        oo_parser.localcontext['objects'] = objects
-        oo_parser.localcontext['data'] = data
-        oo_parser.localcontext['user_lang'] = context.get('lang', False)
-        if len(objects)==1:
-            oo_parser.localcontext['o'] = objects[0]
-        xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
-        oo_parser.localcontext.update(xfunc.functions)
-
-        ###### Detect report_aeroo_ooo module ######
-        aeroo_ooo = False
-        cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
-        helper_module = cr.dictfetchone()
-        if helper_module and helper_module['state'] in ('installed', 'to upgrade'):
-            aeroo_ooo = True
-        ############################################
-
+        aeroo_ooo = context.get('aeroo_ooo', False)
         oo_parser.localcontext['include_subreport'] = self._subreport(cr, uid, output='odt', aeroo_ooo=aeroo_ooo, context=context)
         oo_parser.localcontext['include_document'] = self._include_document(aeroo_ooo)
 
@@ -400,7 +414,6 @@ class Aeroo_report(report_sxw):
             for sub_report in self.oo_subreports:
                 os.unlink(sub_report)
             raise Exception(_("Aeroo Reports: Error while generating the report."), e, str(e), _("For more reference inspect error logs."))
-            #return False, output
 
         ######### OpenOffice extras #########
         DC = netsvc.Service._services.get('openoffice')
@@ -435,6 +448,8 @@ class Aeroo_report(report_sxw):
         if report_xml.report_type == 'aeroo':
             if report_xml.out_format.code.startswith('oo-'):
                 output = report_xml.out_format.code[3:]
+                #print "uid:", uid, "ids:", ids, "data:", data, "report_xml:", report_xml, "context:", context, "output:", output
+                #ids = [1364]
                 return self.create_aeroo_report(cr, uid, ids, data, report_xml, context=context, output=output)
             elif report_xml.out_format.code =='genshi-raw':
                 return self.create_genshi_raw_report(cr, uid, ids, data, report_xml, context=context, output='raw')
@@ -443,7 +458,7 @@ class Aeroo_report(report_sxw):
         title = report_xml.name
         rml = report_xml.report_rml_content
         oo_parser = self.parser(cr, uid, self.name2, context=context)
-        objs = self.getObjects(cr, uid, ids, context)
+        objs = self.getObjects_mod(cr, uid, ids, report_xml.report_type, context)
         oo_parser.set_context(objs, data, ids, report_xml.report_type)
         processed_rml = self.preprocess_rml(etree.XML(rml),report_xml.report_type)
         if report_xml.header:
@@ -454,16 +469,71 @@ class Aeroo_report(report_sxw):
         pdf = create_doc(etree.tostring(processed_rml),oo_parser.localcontext,logo,title.encode('utf8'))
         return (pdf, report_xml.report_type)
 
+    def create_source_pdf(self, cr, uid, ids, data, report_xml, context=None):
+        if not context:
+            context={}
+        pool = pooler.get_pool(cr.dbname)
+        attach = report_xml.attachment
+        aeroo_ooo = self._aeroo_ooo_test(cr) # Detect report_aeroo_ooo module
+        context['aeroo_ooo'] = aeroo_ooo
+        if attach or aeroo_ooo and report_xml.process_sep:
+            objs = self.getObjects(cr, uid, ids, context)
+            results = []
+            for obj in objs:
+                aname = attach and eval(attach, {'object':obj, 'time':time}) or False
+                result = False
+                if report_xml.attachment_use and aname and context.get('attachment_use', True):
+                    aids = pool.get('ir.attachment').search(cr, uid, [('datas_fname','=',aname+'.pdf'),('res_model','=',self.table),('res_id','=',obj.id)])
+                    if aids:
+                        brow_rec = pool.get('ir.attachment').browse(cr, uid, aids[0])
+                        if not brow_rec.datas:
+                            continue
+                        d = base64.decodestring(brow_rec.datas)
+                        results.append((d,'pdf'))
+                        continue
+                result = self.create_single_pdf(cr, uid, [obj.id], data, report_xml, context)
+                if not result:
+                    return False
+                try:
+                    if attach and aname:
+                        name = aname+'.'+result[1]
+                        pool.get('ir.attachment').create(cr, uid, {
+                            'name': aname,
+                            'datas': base64.encodestring(result[0]),
+                            'datas_fname': name,
+                            'res_model': self.table,
+                            'res_id': obj.id,
+                            }, context=context
+                        )
+                        cr.commit()
+                except Exception,e:
+                     tb_s = reduce(lambda x, y: x+y, traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
+                     netsvc.Logger().notifyChannel('report', netsvc.LOG_ERROR,str(e))
+                results.append(result)
+            if results:
+                if results[0][1]=='pdf':
+                    output = PdfFileWriter()
+                    for r in results:
+                        reader = PdfFileReader(StringIO(r[0]))
+                        for page in range(reader.getNumPages()):
+                            output.addPage(reader.getPage(page))
+                    s = StringIO()
+                    output.write(s)
+                    return s.getvalue(), results[0][1]
+        return self.create_single_pdf(cr, uid, ids, data, report_xml, context)
+
     def create_source_odt(self, cr, uid, ids, data, report_xml, context=None):
         if not context:
             context={}
         pool = pooler.get_pool(cr.dbname)
         results = []
         attach = report_xml.attachment
-        if attach:
-            objs = self.getObjects(cr, uid, ids, context)
+        aeroo_ooo = self._aeroo_ooo_test(cr) # Detect report_aeroo_ooo module
+        context['aeroo_ooo'] = aeroo_ooo
+        if attach or aeroo_ooo and report_xml.process_sep:
+            objs = self.getObjects_mod(cr, uid, ids, report_xml.report_type, context)
             for obj in objs:
-                aname = eval(attach, {'object':obj, 'time':time})
+                aname = attach and eval(attach, {'object':obj, 'time':time}) or False
                 result = False
                 if report_xml.attachment_use and aname and context.get('attachment_use', True):
                     aids = pool.get('ir.attachment').search(cr, uid, [('datas_fname','=',aname+'.odt'),('res_model','=',self.table),('res_id','=',obj.id)])
@@ -476,7 +546,7 @@ class Aeroo_report(report_sxw):
                         continue
                 result = self.create_single_pdf(cr, uid, [obj.id], data, report_xml, context)
                 try:
-                    if aname:
+                    if attach and aname:
                         name = aname+'.'+result[1]
                         pool.get('ir.attachment').create(cr, uid, {
                             'name': aname,
@@ -491,7 +561,19 @@ class Aeroo_report(report_sxw):
                      self.logger(str(e), netsvc.LOG_ERROR)
                 results.append(result)
 
-        return results and len(results)==1 and results[0] or self.create_single_pdf(cr, uid, ids, data, report_xml, context)
+        DC = netsvc.Service._services.get('openoffice')
+        if results and len(results)==1:
+            return results[0]
+        elif results and DC:
+            results.reverse()
+            data = results.pop()
+            DC.putDocument(data[0])
+            DC.joinDocuments([r[0] for r in results])
+            result = DC.saveByStream()
+            DC.closeDocument()
+            return (result, data[1])
+        else:
+            return self.create_single_pdf(cr, uid, ids, data, report_xml, context)
 
     # override needed to intercept the call to the proper 'create' method
     def create(self, cr, uid, ids, data, context=None):
