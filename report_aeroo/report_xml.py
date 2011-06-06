@@ -28,7 +28,7 @@
 
 from osv import osv,fields
 import netsvc
-from report_aeroo import Aeroo_report, load_from_file, load_from_source, register_report, delete_report_service
+from report_aeroo import Aeroo_report, load_from_file, load_from_source, register_report, unregister_report, delete_report_service
 from report.report_sxw import rml_parse
 import base64, binascii
 import tools
@@ -180,6 +180,7 @@ class report_xml(osv.osv):
                                                                             ])
             if ir_value_ids:
                 self.pool.get('ir.values').unlink(cr, uid, ir_value_ids)
+                unregister_report(r['report_name'])
         self.pool.get('ir.model.data')._unlink(cr, uid, 'ir.actions.report.xml', ids, direct=True)
         ####################################
         res = super(report_xml, self).unlink(cr, uid, ids, context)
@@ -197,8 +198,10 @@ class report_xml(osv.osv):
 
             res_id = super(report_xml, self).create(cr, user, vals, context)
             try:
-                register_report(cr, vals['report_name'], vals['model'], vals.get('report_rml', False), parser)
+                if vals.get('active', False):
+                    register_report(cr, vals['report_name'], vals['model'], vals.get('report_rml', False), parser)
             except Exception, e:
+                print e
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))
             return res_id
 
@@ -245,7 +248,10 @@ class report_xml(osv.osv):
 
             res = super(report_xml, self).write(cr, user, ids, vals, context)
             try:
-                register_report(cr, report_name, vals.get('model', record['model']), vals.get('report_rml', record['report_rml']), parser)
+                if vals.get('active', record['active']):
+                    register_report(cr, report_name, vals.get('model', record['model']), vals.get('report_rml', record['report_rml']), parser)
+                else:
+                    unregister_report(report_name)
             except Exception, e:
                 print e
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))

@@ -78,6 +78,8 @@ class ExtraFunctions(object):
             'dec_to_time':self._dec2time,
             'chunks':self._chunks,
             'browse':self._browse,
+            'search':self._search,
+            'search_ids':self._search_ids,
             'field_size':self._field_size,
             'field_accuracy':self._field_accuracy,
             'bool_as_icon':self._bool_as_icon,
@@ -360,6 +362,15 @@ class ExtraFunctions(object):
         """
         for i in xrange(0, len(l), n):
             yield l[i:i+n]
+
+    def _search_ids(self, model, domain):
+        obj = self.pool.get(model)
+        return obj.search(self.cr, self.uid, domain)
+
+    def _search(self, model, domain):
+        obj = self.pool.get(model)
+        ids = obj.search(self.cr, self.uid, domain)
+        return obj.browse(self.cr, self.uid, ids)
 
     def _browse(self, *args):
         if not args or (args and not args[0]):

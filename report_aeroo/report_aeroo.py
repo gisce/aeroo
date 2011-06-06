@@ -680,6 +680,11 @@ def register_report(cr, name, model, tmpl_path, parser):
         del netsvc.SERVICES[name]
     Aeroo_report(cr, name, model, tmpl_path, parser=parser)
 
+def unregister_report(name):
+    name = 'report.%s' % name
+    if netsvc.service_exist( name ):
+        del netsvc.SERVICES[name]
+
 old_register_all = report.interface.register_all
 def new_register_all(db):
     value = old_register_all(db)
