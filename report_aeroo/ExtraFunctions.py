@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2011 SIA "KN dati". (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2011 SIA "Alistek". (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional

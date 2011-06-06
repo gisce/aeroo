@@ -281,9 +281,10 @@ class report_xml(osv.osv):
 
             res_id = super(report_xml, self).create(cr, user, vals, context)
             try:
-                if vals['active']:
+                if vals.get('active', False):
                     self.register_report(cr, vals['report_name'], vals['model'], vals.get('report_rml', False), parser)
             except Exception, e:
+                print e
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))
             return res_id
 
@@ -335,6 +336,7 @@ class report_xml(osv.osv):
                 else:
                     self.unregister_report(report_name)
             except Exception, e:
+                print e
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))
             return res
 
