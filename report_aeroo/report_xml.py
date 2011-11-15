@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -104,9 +107,8 @@ class report_xml(osv.osv):
                     data = base64.encodestring(fp.read())
                 except:
                     data = False
-                finally:
-                    if fp:
-                        fp.close()
+                if fp:
+                    fp.close()
             res[report.id] = data
         return res
 
@@ -163,8 +165,32 @@ class report_xml(osv.osv):
             fnct_inv=_report_content_inv, method=True,
             type='binary', string='SXW content',),
         'active':fields.boolean('Active'),
+        'report_wizard':fields.boolean('Report Wizard'),
+        'copies': fields.integer('Number of copies'),
+        'fallback_false':fields.boolean('Disable format fallback'),
         
     }
+
+    def read(self, cr, user, ids, fields=None, context=None, load='_classic_read'):
+        ##### check new model fields, that while not exist in database #####
+        cr.execute("SELECT name FROM ir_model_fields WHERE model = 'ir.actions.report.xml'")
+        true_fields = [val[0] for val in cr.fetchall()]
+        true_fields.append(self.CONCURRENCY_CHECK_FIELD)
+        if fields:
+            exclude_fields = set(fields).difference(set(true_fields))
+            fields = filter(lambda f: f not in exclude_fields, fields)
+        else:
+            exclude_fields = []
+        ####################################################################
+        res = super(report_xml, self).read(cr, user, ids, fields, context)
+        ##### set default values for new model fields, that while not exist in database ####
+        if exclude_fields:
+            defaults = self.default_get(cr, user, exclude_fields, context=context)
+            for r in res:
+                for exf in exclude_fields:
+                    r[exf] = defaults.get(exf, False)
+        ####################################################################################
+        return res
 
     def unlink(self, cr, uid, ids, context=None):
         #TODO: process before delete resource
@@ -172,15 +198,22 @@ class report_xml(osv.osv):
         trans_ids = trans_obj.search(cr, uid, [('type','=','report'),('res_id','in',ids)])
         trans_obj.unlink(cr, uid, trans_ids)
         ####################################
-        reports = self.read(cr, uid, ids, ['report_name','model'])
+        reports = self.read(cr, uid, ids, ['report_name','model','report_wizard'])
         for r in reports:
-            ir_value_ids = self.pool.get('ir.values').search(cr, uid, [('name','=',r['report_name']), 
-                                                                            ('value','=','ir.actions.report.xml,%s' % r['id']),
-                                                                            ('model','=',r['model'])
-                                                                            ])
-            if ir_value_ids:
-                self.pool.get('ir.values').unlink(cr, uid, ir_value_ids)
-                unregister_report(r['report_name'])
+            if r['report_wizard']:
+                act_win_ids = act_win_obj.search(cr, uid, [('res_model','=','aeroo.print_actions')], context=context)
+                for act_win in act_win_obj.browse(cr, uid, act_win_ids, context=context):
+                    act_win_context = eval(act_win.context, {})
+                    if act_win_context.get('report_action_id')==r['id']:
+                        act_win.unlink(context)
+            else:
+                ir_value_ids = self.pool.get('ir.values').search(cr, uid, [('name','=',r['report_name']), 
+                                                                                ('value','=','ir.actions.report.xml,%s' % r['id']),
+                                                                                ('model','=',r['model'])
+                                                                                ])
+                if ir_value_ids:
+                    self.pool.get('ir.values').unlink(cr, uid, ir_value_ids)
+                    unregister_report(r['report_name'])
         self.pool.get('ir.model.data')._unlink(cr, uid, 'ir.actions.report.xml', ids, direct=True)
         ####################################
         res = super(report_xml, self).unlink(cr, uid, ids, context)
@@ -206,6 +239,8 @@ class report_xml(osv.osv):
             return res_id
 
         res_id = super(report_xml, self).create(cr, user, vals, context)
+        if vals.get('report_type') == 'aeroo' and vals.get('report_wizard'):
+            self._set_report_wizard(cr, user, res_id, context)
         return res_id
 
     def write(self, cr, user, ids, vals, context=None):
@@ -221,6 +256,10 @@ class report_xml(osv.osv):
         #if context and 'model' in vals and not self.pool.get('ir.model').search(cr, user, [('model','=',vals['model'])]):
         #    raise osv.except_osv(_('Object model is not correct !'),_('Please check "Object" field !') )
         if vals.get('report_type', record['report_type']) == 'aeroo':
+            if vals.get('report_wizard'):
+                self._set_report_wizard(cr, user, ids, context)
+            elif 'report_wizard' in vals and not vals['report_wizard'] and record['report_wizard']:
+                self._unset_report_wizard(cr, user, ids, context)
             parser=rml_parse
             if vals.get('parser_state', False)=='loc':
                 parser = load_from_file(vals.get('parser_loc', False) or record['parser_loc'], cr.dbname, record['id']) or parser
@@ -260,6 +299,64 @@ class report_xml(osv.osv):
         res = super(report_xml, self).write(cr, user, ids, vals, context)
         return res
 
+    def _set_report_wizard(self, cr, uid, ids, context=None):
+        id = isinstance(ids, list) and ids[0] or ids
+        ir_values_obj = self.pool.get('ir.values')
+        trans_obj = self.pool.get('ir.translation')
+        event_id = ir_values_obj.search(cr, uid, [('value','=',"ir.actions.report.xml,%s" % id)])
+        name = self.read(cr, uid, id, ['name'])['name']
+        if event_id:
+            event_id = event_id[0]
+            action_data = {'name':name,
+                           'view_mode':'form',
+                           'view_type':'form',
+                           'target':'new',
+                           'res_model':'aeroo.print_actions',
+                           'context':{'report_action_id':id}
+                           }
+            act_id = self.pool.get('ir.actions.act_window').create(cr, uid, action_data, context)
+            ir_values_obj.write(cr, uid, event_id, {'value':"ir.actions.act_window,%s" % act_id}, context=context)
+
+            translations = trans_obj.search(cr, uid, [('res_id','=',id),('src','=',name),('name','=','ir.actions.report.xml,name')])
+            for trans in trans_obj.browse(cr, uid, translations, context):
+                trans_obj.copy(cr, uid, trans.id, default={'name':'ir.actions.act_window,name','res_id':act_id})
+            return act_id
+        return False
+
+    def _unset_report_wizard(self, cr, uid, ids, context=None):
+        id = isinstance(ids, list) and ids[0] or ids
+        ir_values_obj = self.pool.get('ir.values')
+        trans_obj = self.pool.get('ir.translation')
+        act_win_obj = self.pool.get('ir.actions.act_window')
+        act_win_ids = act_win_obj.search(cr, uid, [('res_model','=','aeroo.print_actions')], context=context)
+        for act_win in act_win_obj.browse(cr, uid, act_win_ids, context=context):
+            act_win_context = eval(act_win.context, {})
+            if act_win_context.get('report_action_id')==id:
+                event_id = ir_values_obj.search(cr, uid, [('value','=',"ir.actions.act_window,%s" % act_win.id)])
+                if event_id:
+                    event_id = event_id[0]
+                    ir_values_obj.write(cr, uid, event_id, {'value':"ir.actions.report.xml,%s" % id}, context=context)
+                ##### Copy translation from window action #####
+                report_xml_trans = trans_obj.search(cr, uid, [('res_id','=',id),('src','=',act_win.name),('name','=','ir.actions.report.xml,name')])
+                trans_langs = map(lambda t: t['lang'], trans_obj.read(cr, uid, report_xml_trans, ['lang'], context))
+                act_window_trans = trans_obj.search(cr, uid, [('res_id','=',act_win.id),('src','=',act_win.name), \
+                                            ('name','=','ir.actions.act_window,name'),('lang','not in',trans_langs)])
+                for trans in trans_obj.browse(cr, uid, act_window_trans, context):
+                    trans_obj.copy(cr, uid, trans.id, default={'name':'ir.actions.report.xml,name','res_id':id})
+                ####### Delete wizard name translations #######
+                act_window_trans = trans_obj.search(cr, uid, [('res_id','=',act_win.id),('src','=',act_win.name),('name','=','ir.actions.act_window,name')])
+                trans_obj.unlink(cr, uid, act_window_trans, context)
+                ###############################################
+                act_win.unlink(context=context)
+                return True
+        return False
+
+    def _set_auto_false(self, cr, uid, ids=[]):
+        if not ids:
+            ids = self.search(cr, uid, [('report_type','=','aeroo'),('auto','=','True')])
+        for id in ids:
+            self.write(cr, uid, id, {'auto':False})
+
     def _get_default_outformat(self, cr, uid, context):
         obj = self.pool.get('report.mimetypes')
         res = obj.search(cr, uid, [('code','=','oo-odt')])
@@ -278,6 +375,7 @@ class report_xml(osv.osv):
         super(Parser, self).__init__(cr, uid, name, context)
         self.localcontext.update({})""",
         'active' : lambda*a: True,
+        'copies': lambda*a: 1,
     }
 
 report_xml()

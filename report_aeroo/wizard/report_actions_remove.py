@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -52,10 +55,11 @@ class report_actions_remove_wizard(wizard.interface):
 
     def _do_action(self, cr, uid, data, context):
         pool = pooler.get_pool(cr.dbname)
-        report = pool.get(data['model']).browse(cr, uid, data['id'], context=context)
-        res = ir.ir_get(cr, uid, 'action', 'client_print_multi', [report.model])
-        id = filter(lambda r: r[1]==report.report_name, res)[0][0]
-        res = ir.ir_del(cr, uid, id)
+        #report = pool.get(data['model']).browse(cr, uid, data['id'], context=context)
+        #res = ir.ir_get(cr, uid, 'action', 'client_print_multi', [report.model])
+        #id = filter(lambda r: r[1]==report.report_name, res)[0][0]
+        event_id = pool.get('ir.values').search(cr, uid, [('value','=','ir.actions.report.xml,%d' % data['id'])])[0]
+        res = ir.ir_del(cr, uid, event_id)
         return {}
 
     def _check(self, cr, uid, data, context):

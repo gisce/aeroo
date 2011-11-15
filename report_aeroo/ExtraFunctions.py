@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -63,9 +66,9 @@ class ExtraFunctions(object):
             'countif':self._countif,
             'count':self._count,
             'sumif':self._sumif,
-            'sum':self._sum,
-            'max':self._max,
-            'min':self._min,
+            'sum_field':self._sum,
+            'max_field':self._max,
+            'min_field':self._min,
             'average':self._average,
             'large':self._large,
             'small':self._small,
@@ -300,23 +303,34 @@ class ExtraFunctions(object):
             return res[index]
         return len(res)==1 and res[0] or res
 
-    def _asimage(self, field_value, rotate=None):
+    def _asimage(self, field_value, rotate=None, size_x=None, size_y=None, uom='px'):
+        def size_by_uom(val, uom, dpi):
+            if uom=='px':
+                result=str(val/dpi)+'in'
+            elif uom=='cm':
+                result=str(val/dpi/2.54)+'in'
+            elif uom=='in':
+                result=str(val)+'in'
+            return result
+        ##############################################
         if not field_value:
             return StringIO.StringIO(), 'image/png'
         field_value = base64.decodestring(field_value)
         tf = StringIO.StringIO(field_value)
         tf.seek(0)
         im=Image.open(tf)
+        format = im.format.lower()
+        dpi_x, dpi_y = map(float, im.info.get('dpi', (96, 96)))
         try:
             if rotate!=None:
                 im=im.rotate(int(rotate))
                 tf.seek(0)
-                im.save(tf, im.format.lower())
+                im.save(tf, format)
         except Exception, e:
-            pass
-        size_x = str(im.size[0]/96.0)+'in'
-        size_y = str(im.size[1]/96.0)+'in'
-        return tf, 'image/%s' % im.format.lower(), size_x, size_y
+            print e
+        size_x = size_x and size_by_uom(size_x, uom, dpi_x) or str(im.size[0]/dpi_x)+'in'
+        size_y = size_y and size_by_uom(size_y, uom, dpi_y) or str(im.size[1]/dpi_y)+'in'
+        return tf, 'image/%s' % format, size_x, size_y
 
     def _embed_image(self, extention, img, width=0, height=0) :
         "Transform a DB image into an embeded HTML image"

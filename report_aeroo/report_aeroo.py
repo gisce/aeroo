@@ -2,7 +2,7 @@
 
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2009-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 # Copyright (C) 2009  Domsense s.r.l.                                   
 #
@@ -15,8 +15,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -429,11 +432,20 @@ class Aeroo_report(report_sxw):
                     DC.closeDocument()
                     #del DC
                 except Exception, e:
-                    self.logger(str(e), netsvc.LOG_ERROR)
-                    output=report_xml.in_format[3:]
+                    self.logger(_("OpenOffice.org related error!")+'\n'+str(e), netsvc.LOG_ERROR)
+                    if report_xml.fallback_false:
+                        raise osv.except_osv(_('OpenOffice.org related error!'), str(e))
+                    else:
+                        output=report_xml.in_format[3:]
                     self.oo_subreports = []
             else:
-                output=report_xml.in_format[3:]
+                if report_xml.fallback_false:
+                    if not aeroo_ooo:
+                        raise osv.except_osv(_('OpenOffice.org related error!'), _('Module "report_aeroo_ooo" not installed.'))
+                    elif not DC:
+                        raise osv.except_osv(_('OpenOffice.org related error!'), _('Can not connect to OpenOffice.org.'))
+                else:
+                    output=report_xml.in_format[3:]
         elif output in ('pdf', 'doc', 'xls'):
             output=report_xml.in_format[3:]
         #####################################
@@ -587,6 +599,12 @@ class Aeroo_report(report_sxw):
             report_xml.report_sxw_content_data = None
             report_rml.report_sxw_content = None
             report_rml.report_sxw = None
+            copies_ids = []
+            if not report_xml.report_wizard and report_xml>1:
+                while(report_xml.copies):
+                    copies_ids.extend(ids)
+                    report_xml.copies -= 1
+            ids = copies_ids or ids
         else:
             title = ''
             rml = tools.file_open(self.tmpl, subdir=None).read()
@@ -609,7 +627,7 @@ class Aeroo_report(report_sxw):
         elif report_type=='aeroo':
             if report_xml.out_format.code in ['oo-pdf']:
                 fnct = self.create_source_pdf
-            elif report_xml.out_format.code in ['oo-odt','oo-ods','oo-doc','oo-xls','genshi-raw']:
+            elif report_xml.out_format.code in ['oo-odt','oo-ods','oo-doc','oo-xls','oo-csv','genshi-raw']:
                 fnct = self.create_source_odt
             else:
                 return super(Aeroo_report, self).create(cr, uid, ids, data, context)

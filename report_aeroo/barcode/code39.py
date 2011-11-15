@@ -1,7 +1,7 @@
 # Copyright (c) 2008 marscel.wordpress.com
 #
-# Copyright (c) 2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2011 SIA Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 
 # Code39.py v1
 # Requires Python and Python Imaging Library (PIL), 

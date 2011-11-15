@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -61,17 +64,13 @@ class report_actions_wizard(wizard.interface):
     </form>'''
 
     fields = {
-        #'print_button': {'string': 'Add print button', 'type': 'boolean', 'default': True, 'help':'Add action to menu context in print button.'},
         'open_action': {'string': 'Open added action', 'type': 'boolean', 'default': False},
     }
 
     def _do_action(self, cr, uid, data, context):
         pool = pooler.get_pool(cr.dbname)
         report = pool.get(data['model']).browse(cr, uid, data['id'], context=context)
-        #if data['form']['print_button']:
         res = ir.ir_set(cr, uid, 'action', 'client_print_multi', report.report_name, [report.model], 'ir.actions.report.xml,%d' % data['id'], isobject=True)
-        #else:
-	    #    res = ir.ir_set(cr, uid, 'action', 'client_print_multi', report.report_name, [report.model,0], 'ir.actions.report.xml,%d' % data['id'], isobject=True)
         return {'value_id':res[0]}
 
     def _check(self, cr, uid, data, context):

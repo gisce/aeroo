@@ -1,7 +1,7 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
 # programmers who take the whole responsability of assessing all potential
@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,9 +33,13 @@
     'name': 'Aeroo Reports - Print Screen Addon',
     'version': '1.0',
     'category': 'Generic Modules/Aeroo Reporting',
-    'description': "",
-    'author': 'KN dati Ltd',
-    'website': 'http://www.kndati.lv',
+    'description': """
+Replaces original OpenERP's "Printscreen List" report. This report produces ODF spreadsheet file (ods) with all fields visible on the view. This is useful report for rapid reporting on OpenERP's data.
+
+Using report_aeroo_ooo OpenERP module by Alistek, you can set output to one of these (xls, pdf, csv) formats.
+""",
+    'author': 'Alistek Ltd',
+    'website': 'http://www.alistek.com',
     'depends': ['base','report_aeroo'],
     "init_xml" : [],
     'update_xml': ['data/report_aeroo_printscreen_data.xml'],

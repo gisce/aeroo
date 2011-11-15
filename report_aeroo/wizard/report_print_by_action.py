@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 ##############################################################################
 #
 # Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
@@ -30,31 +29,37 @@
 #
 ##############################################################################
 
-{ 
-    'name': 'Aeroo Reports - OpenOffice Helper Addon',
-    'version': '1.0',
-    'category': 'Generic Modules/Aeroo Reporting',
-    'description': """
-Aeroo Reports OpenOffice.org helper adds following features:
 
-* Additional output formats for ODF reports;
-* ODF subreport feature;
-* Include external ODF documents feature;
-* Process each object separately or in group;
+from osv import osv
+from osv import fields
 
-Supported output format combinations (Template -> Output):
-=================================================================
-odt -> pdf
-odt -> doc
-ods -> pdf
-ods -> xls
-ods -> csv
-""",
-    'author': 'Alistek Ltd',
-    'website': 'http://www.alistek.com',
-    'depends': ['base','report_aeroo'],
-    "init_xml" : [],
-    'update_xml': ["report_view.xml", "data/report_aeroo_data.xml"],
-    'installable': True,
-    'active': False,
-}
+class report_print_by_action(osv.osv_memory):
+    _name = 'aeroo.print_by_action'
+
+    def to_print(self, cr, uid, ids, context=None):
+        this = self.browse(cr, uid, ids[0], context=context)
+        report_xml = self.pool.get('ir.actions.report.xml').browse(cr, uid, context['active_id'], context=context)
+        print_ids = eval("[%s]" % this.object_ids, {})
+        data = {'model':report_xml.model, 'ids':print_ids, 'id':print_ids[0], 'report_type': 'aeroo'}
+        return {
+            'type': 'ir.actions.report.xml',
+            'report_name': report_xml.report_name,
+            'datas': data,
+            'context':context
+        }
+    
+    _columns = {
+        'name':fields.text('Object Model', readonly=True),
+        'object_ids':fields.char('Object IDs', size=250, required=True, help="Comma separated records ID"),
+                
+    }
+
+    def _get_model(self, cr, uid, context):
+        return self.pool.get('ir.actions.report.xml').read(cr, uid, context['active_id'], ['model'], context=context)['model']
+
+    _defaults = {
+        'name': _get_model,
+    }
+
+report_print_by_action()
+
