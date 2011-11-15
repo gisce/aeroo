@@ -18,7 +18,7 @@
 		    <field name="name">PDF - Portable Document Format (.pdf)</field>
 		    <field name="code">oo-pdf</field>
 		    <field name="compatible_types">oo-ods</field>
-		    <field name="filter_name">writer_pdf_Export</field>
+		    <field name="filter_name">calc_pdf_Export</field>
 	    </record>
 
 	    <record model="report.mimetypes" id="report_mimetypes_doc_odt" >
@@ -35,6 +35,12 @@
 		    <field name="filter_name">MS Excel 97</field>
 	    </record>
 
+	    <record model="report.mimetypes" id="report_mimetypes_csv_ods" >
+		    <field name="name">Text CSV (.csv)</field>
+		    <field name="code">oo-csv</field>
+		    <field name="compatible_types">oo-ods</field>
+		    <field name="filter_name">Text - txt - csv (StarCalc)</field>
+	    </record>
 
     </data>
 </openerp>

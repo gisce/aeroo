@@ -1,5 +1,5 @@
-# Copyright (c) 2009-2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
-#                    General contacts <info@kndati.lv>
+# Copyright (c) 2009-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+#                    General contacts <info@alistek.com>
 
 from tools import config
 

@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,8 +31,11 @@
 
 import wizard
 import pooler
-import ir
 from tools.translate import _
+
+def ir_set(cr, uid, key, key2, name, models, value, replace=True, isobject=False, meta=None):
+    obj = pooler.get_pool(cr.dbname).get('ir.values')
+    return obj.set(cr, uid, key, key2, name, models, value, replace, isobject, meta)
 
 special_reports = [
     'printscreen.list'
@@ -61,43 +67,52 @@ class report_actions_wizard(wizard.interface):
     </form>'''
 
     fields = {
-        #'print_button': {'string': 'Add print button', 'type': 'boolean', 'default': True, 'help':'Add action to menu context in print button.'},
         'open_action': {'string': 'Open added action', 'type': 'boolean', 'default': False},
     }
 
     def _do_action(self, cr, uid, data, context):
         pool = pooler.get_pool(cr.dbname)
         report = pool.get(data['model']).browse(cr, uid, data['id'], context=context)
-        #if data['form']['print_button']:
         res = ir.ir_set(cr, uid, 'action', 'client_print_multi', report.report_name, [report.model], 'ir.actions.report.xml,%d' % data['id'], isobject=True)
-        #else:
-	    #    res = ir.ir_set(cr, uid, 'action', 'client_print_multi', report.report_name, [report.model,0], 'ir.actions.report.xml,%d' % data['id'], isobject=True)
+        if report.report_wizard:
+            report._set_report_wizard()
         return {'value_id':res[0]}
 
     def _check(self, cr, uid, data, context):
         pool = pooler.get_pool(cr.dbname)
+        ir_values_obj = pool.get('ir.values')
         report = pool.get(data['model']).browse(cr, uid, data['id'], context=context)
         if report.report_name in special_reports:
             return 'exception'
-        ids = pool.get('ir.values').search(cr, uid, [('value','=',report.type+','+str(data['id']))])
-        if not ids:
-	        return 'add'
+        if report.report_wizard:
+            act_win_obj = pool.get('ir.actions.act_window')
+            act_win_ids = act_win_obj.search(cr, uid, [('res_model','=','aeroo.print_actions')], context=context)
+            for act_win in act_win_obj.browse(cr, uid, act_win_ids, context=context):
+                act_win_context = eval(act_win.context, {})
+                if act_win_context.get('report_action_id')==report.id:
+                    return 'exist'
+            return 'add'
         else:
-	        return 'exist'
+            ids = ir_values_obj.search(cr, uid, [('value','=',report.type+','+str(data['id']))])
+            if not ids:
+	            return 'add'
+            else:
+	            return 'exist'
 
     def _action_open_window(self, cr, uid, data, context):
         form=data['form']
         if not form['open_action']:
             return {}
-        return {
-            'domain':"[('id','=',%d)]" % (form['value_id']),
-            'name': _('Client Actions Connections'),
-            'view_type': 'form',
-            'view_mode': 'tree,form',
-            'res_model': 'ir.values',
-            'view_id': False,
-            'type': 'ir.actions.act_window',
-        }
+
+        mod_obj = pooler.get_pool(cr.dbname).get('ir.model.data')
+        act_obj = pooler.get_pool(cr.dbname).get('ir.actions.act_window')
+
+        mod_id = mod_obj.search(cr, uid, [('name', '=', 'act_values_form_action')])[0]
+        res_id = mod_obj.read(cr, uid, mod_id, ['res_id'])['res_id']
+        act_win = act_obj.read(cr, uid, res_id, [])
+        act_win['domain'] = [('id','=',form['value_id'])]
+        act_win['name'] = _('Client Events')
+        return act_win
     
     states = {
         'init': {

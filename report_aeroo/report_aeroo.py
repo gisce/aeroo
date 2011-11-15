@@ -2,7 +2,7 @@
 
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2009-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 # Copyright (C) 2009  Domsense s.r.l.                                   
 #
@@ -15,8 +15,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -48,7 +51,10 @@ import time
 import re
 import copy
 
-from addons import load_information_from_description_file
+try:
+    from addons import load_information_from_description_file # for OpenERP 6.0.x
+except ImportError:
+    from openerp.modules import load_information_from_description_file # for OpenERP 6.1
 import release
 
 import aeroolib
@@ -56,9 +62,21 @@ from aeroolib.plugins.opendocument import Template, OOSerializer
 from genshi.template import NewTextTemplate
 import pooler
 import netsvc
+from lxml import etree
 logger = netsvc.Logger()
 
 from ExtraFunctions import ExtraFunctions
+
+def _aeroo_ooo_test(cr):
+    '''
+    Detect report_aeroo_ooo module
+    '''
+    aeroo_ooo = False
+    cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
+    helper_module = cr.dictfetchone()
+    if helper_module and helper_module['state'] in ('installed', 'to upgrade'):
+        aeroo_ooo = True
+    return aeroo_ooo
 
 class Counter(object):
     def __init__(self, name, start=0, interval=1):
@@ -91,7 +109,8 @@ class Aeroo_report(report_sxw):
 
         pool = pooler.get_pool(cr.dbname)
         ir_obj = pool.get('ir.actions.report.xml')
-        report_xml_ids = ir_obj.search(cr, 1, [('report_name', '=', name[7:])])
+        name = name.startswith('report.') and name[7:] or name
+        report_xml_ids = ir_obj.search(cr, 1, [('report_name', '=', name)])
         if report_xml_ids:
             report_xml = ir_obj.browse(cr, 1, report_xml_ids[0])
         else:
@@ -171,9 +190,9 @@ class Aeroo_report(report_sxw):
                 try:
                     url_file = urllib2.urlopen(data)
                     data = url_file.read()
-                except urllib2.HTTPError:
+                except urllib2.HTTPError, e:
                     os.unlink(temp_file_name)
-                    error = _('HTTP Error 404! Not file found:')+' %s' % data
+                    error = _('HTTP Error %s! File not found:') % e.getcode() + ' %s' % data
                 except urllib2.URLError, e:
                     os.unlink(temp_file_name)
                     error = _('Error!')+' %s' % e
@@ -185,7 +204,7 @@ class Aeroo_report(report_sxw):
                         data = base64.decodestring(data)
                     except binascii.Error:
                         os.unlink(temp_file_name)
-                        error = _('Error! Not file found:')+' %s' % data
+                        error = _('Error! File not found:')+' %s' % data
                 if error:
                     if not silent:
                         return error
@@ -260,12 +279,12 @@ class Aeroo_report(report_sxw):
         else:
             return False
 
-    def get_styles_file(self, cr, uid, report_xml, context=None):
+    def get_styles_file(self, cr, uid, report_xml, company=None, context=None):
         pool = pooler.get_pool(cr.dbname)
         style_io=None
         if report_xml.styles_mode!='default':
             if report_xml.styles_mode=='global':
-                company_id = pool.get('res.users')._get_company(cr, uid, context=context)
+                company_id = company or pool.get('res.users')._get_company(cr, uid, context=context)
                 style_content = pool.get('res.company').browse(cr, uid, company_id, context=context).stylesheet_id
                 style_content = style_content and style_content.report_styles or False
             elif report_xml.styles_mode=='specified':
@@ -318,17 +337,6 @@ class Aeroo_report(report_sxw):
             output = report_xml.content_fname
         return data, output
 
-    def _aeroo_ooo_test(self, cr):
-        '''
-        Detect report_aeroo_ooo module
-        '''
-        aeroo_ooo = False
-        cr.execute("SELECT id, state FROM ir_module_module WHERE name='report_aeroo_ooo'")
-        helper_module = cr.dictfetchone()
-        if helper_module and helper_module['state'] in ('installed', 'to upgrade'):
-            aeroo_ooo = True
-        return aeroo_ooo
-
     def create_aeroo_report(self, cr, uid, ids, data, report_xml, context=None, output='odt'):
         """ Returns an aeroo report generated with aeroolib
         """
@@ -354,7 +362,10 @@ class Aeroo_report(report_sxw):
         xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
         oo_parser.localcontext.update(xfunc.functions)
 
-        style_io=self.get_styles_file(cr, uid, report_xml, context)
+        company_id = objects and 'company_id' in objects[0]._table._columns.keys() and \
+                                objects[0].company_id and objects[0].company_id.id or False # for object company usage
+        style_io=self.get_styles_file(cr, uid, report_xml, company=company_id, context=context)
+
         if report_xml.tml_source in ('file', 'database'):
             file_data = base64.decodestring(report_xml.report_sxw_content)
         else:
@@ -399,18 +410,19 @@ class Aeroo_report(report_sxw):
 
         basic.Serializer.add_title(model_name)
         basic.Serializer.add_creation_user(user_name)
-        version = load_information_from_description_file('report_aeroo')['version']
+        module_info = load_information_from_description_file('report_aeroo')
+        version = module_info['version']
         basic.Serializer.add_generator_info('Aeroo Lib/%s Aeroo Reports/%s' % (aeroolib.__version__, version))
         basic.Serializer.add_custom_property('Aeroo Reports %s' % version, 'Generator')
         basic.Serializer.add_custom_property('OpenERP %s' % release.version, 'Software')
-        basic.Serializer.add_custom_property('http://www.alistek.com/', 'URL')
+        basic.Serializer.add_custom_property(module_info['website'], 'URL')
         basic.Serializer.add_creation_date(time.strftime('%Y-%m-%dT%H:%M:%S'))
 
         try:
             data = basic.generate(**oo_parser.localcontext).render().getvalue()
         except Exception, e:
             tb_s = reduce(lambda x, y: x+y, traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
-            self.logger(tb_s, netsvc.LOG_ERROR)
+            self.logger(_("Report generation error!")+'\n'+tb_s, netsvc.LOG_ERROR)
             for sub_report in self.oo_subreports:
                 os.unlink(sub_report)
             raise Exception(_("Aeroo Reports: Error while generating the report."), e, str(e), _("For more reference inspect error logs."))
@@ -428,11 +440,20 @@ class Aeroo_report(report_sxw):
                     DC.closeDocument()
                     #del DC
                 except Exception, e:
-                    self.logger(str(e), netsvc.LOG_ERROR)
-                    output=report_xml.in_format[3:]
+                    self.logger(_("OpenOffice.org related error!")+'\n'+str(e), netsvc.LOG_ERROR)
+                    if report_xml.fallback_false:
+                        raise osv.except_osv(_('OpenOffice.org related error!'), str(e))
+                    else:
+                        output=report_xml.in_format[3:]
                     self.oo_subreports = []
             else:
-                output=report_xml.in_format[3:]
+                if report_xml.fallback_false:
+                    if not aeroo_ooo:
+                        raise osv.except_osv(_('OpenOffice.org related error!'), _('Module "report_aeroo_ooo" not installed.'))
+                    elif not DC:
+                        raise osv.except_osv(_('OpenOffice.org related error!'), _('Can not connect to OpenOffice.org.'))
+                else:
+                    output=report_xml.in_format[3:]
         elif output in ('pdf', 'doc', 'xls'):
             output=report_xml.in_format[3:]
         #####################################
@@ -448,8 +469,6 @@ class Aeroo_report(report_sxw):
         if report_xml.report_type == 'aeroo':
             if report_xml.out_format.code.startswith('oo-'):
                 output = report_xml.out_format.code[3:]
-                #print "uid:", uid, "ids:", ids, "data:", data, "report_xml:", report_xml, "context:", context, "output:", output
-                #ids = [1364]
                 return self.create_aeroo_report(cr, uid, ids, data, report_xml, context=context, output=output)
             elif report_xml.out_format.code =='genshi-raw':
                 return self.create_genshi_raw_report(cr, uid, ids, data, report_xml, context=context, output='raw')
@@ -474,7 +493,7 @@ class Aeroo_report(report_sxw):
             context={}
         pool = pooler.get_pool(cr.dbname)
         attach = report_xml.attachment
-        aeroo_ooo = self._aeroo_ooo_test(cr) # Detect report_aeroo_ooo module
+        aeroo_ooo = _aeroo_ooo_test(cr) # Detect report_aeroo_ooo module
         context['aeroo_ooo'] = aeroo_ooo
         if attach or aeroo_ooo and report_xml.process_sep:
             objs = self.getObjects(cr, uid, ids, context)
@@ -483,13 +502,23 @@ class Aeroo_report(report_sxw):
                 aname = attach and eval(attach, {'object':obj, 'time':time}) or False
                 result = False
                 if report_xml.attachment_use and aname and context.get('attachment_use', True):
-                    aids = pool.get('ir.attachment').search(cr, uid, [('datas_fname','=',aname+'.pdf'),('res_model','=',self.table),('res_id','=',obj.id)])
-                    if aids:
-                        brow_rec = pool.get('ir.attachment').browse(cr, uid, aids[0])
+                    #aids = pool.get('ir.attachment').search(cr, uid, [('datas_fname','=',aname+'.pdf'),('res_model','=',self.table),('res_id','=',obj.id)])
+                    #if aids:
+                    #    brow_rec = pool.get('ir.attachment').browse(cr, uid, aids[0])
+                    #    if not brow_rec.datas:
+                    #        continue
+                    #    d = base64.decodestring(brow_rec.datas)
+                    #    results.append((d,'pdf'))
+                    #    continue
+                    cr.execute("SELECT id, datas_fname FROM ir_attachment WHERE datas_fname ilike %s and res_model=%s and res_id=%s LIMIT 1", (aname+'.%',self.table,obj.id))
+                    search_res = cr.dictfetchone()
+                    if search_res:
+                        brow_rec = pool.get('ir.attachment').browse(cr, uid, search_res['id'])
                         if not brow_rec.datas:
                             continue
                         d = base64.decodestring(brow_rec.datas)
-                        results.append((d,'pdf'))
+                        extension = search_res['datas_fname'].split('.')[1]
+                        results.append((d,extension))
                         continue
                 result = self.create_single_pdf(cr, uid, [obj.id], data, report_xml, context)
                 if not result:
@@ -497,9 +526,11 @@ class Aeroo_report(report_sxw):
                 try:
                     if attach and aname:
                         name = aname+'.'+result[1]
+                        datas = base64.encodestring(result[0])
                         pool.get('ir.attachment').create(cr, uid, {
                             'name': aname,
-                            'datas': base64.encodestring(result[0]),
+                            'datas': datas,
+                            'file_size': len(datas),
                             'datas_fname': name,
                             'res_model': self.table,
                             'res_id': obj.id,
@@ -511,15 +542,18 @@ class Aeroo_report(report_sxw):
                      netsvc.Logger().notifyChannel('report', netsvc.LOG_ERROR,str(e))
                 results.append(result)
             if results:
-                if results[0][1]=='pdf':
-                    output = PdfFileWriter()
-                    for r in results:
-                        reader = PdfFileReader(StringIO(r[0]))
-                        for page in range(reader.getNumPages()):
-                            output.addPage(reader.getPage(page))
-                    s = StringIO()
-                    output.write(s)
-                    return s.getvalue(), results[0][1]
+                not_pdf = filter(lambda r: r[1]!='pdf', results)
+                if not_pdf:
+                    raise osv.except_osv(_('Error!'), _('Unsupported combination of formats!'))
+                #if results[0][1]=='pdf':
+                output = PdfFileWriter()
+                for r in results:
+                    reader = PdfFileReader(StringIO(r[0]))
+                    for page in range(reader.getNumPages()):
+                        output.addPage(reader.getPage(page))
+                s = StringIO()
+                output.write(s)
+                return s.getvalue(), results[0][1]
         return self.create_single_pdf(cr, uid, ids, data, report_xml, context)
 
     def create_source_odt(self, cr, uid, ids, data, report_xml, context=None):
@@ -528,7 +562,7 @@ class Aeroo_report(report_sxw):
         pool = pooler.get_pool(cr.dbname)
         results = []
         attach = report_xml.attachment
-        aeroo_ooo = self._aeroo_ooo_test(cr) # Detect report_aeroo_ooo module
+        aeroo_ooo = _aeroo_ooo_test(cr) # Detect report_aeroo_ooo module
         context['aeroo_ooo'] = aeroo_ooo
         if attach or aeroo_ooo and report_xml.process_sep:
             objs = self.getObjects_mod(cr, uid, ids, report_xml.report_type, context)
@@ -536,21 +570,33 @@ class Aeroo_report(report_sxw):
                 aname = attach and eval(attach, {'object':obj, 'time':time}) or False
                 result = False
                 if report_xml.attachment_use and aname and context.get('attachment_use', True):
-                    aids = pool.get('ir.attachment').search(cr, uid, [('datas_fname','=',aname+'.odt'),('res_model','=',self.table),('res_id','=',obj.id)])
-                    if aids:
-                        brow_rec = pool.get('ir.attachment').browse(cr, uid, aids[0])
+                    #aids = pool.get('ir.attachment').search(cr, uid, [('datas_fname','=',aname+'.odt'),('res_model','=',self.table),('res_id','=',obj.id)])
+                    #if aids:
+                    #    brow_rec = pool.get('ir.attachment').browse(cr, uid, aids[0])
+                    #    if not brow_rec.datas:
+                    #        continue
+                    #    d = base64.decodestring(brow_rec.datas)
+                    #    results.append((d,'odt'))
+                    #    continue
+                    cr.execute("SELECT id, datas_fname FROM ir_attachment WHERE datas_fname ilike %s and res_model=%s and res_id=%s LIMIT 1", (aname+'.%',self.table,obj.id))
+                    search_res = cr.dictfetchone()
+                    if search_res:
+                        brow_rec = pool.get('ir.attachment').browse(cr, uid, search_res['id'])
                         if not brow_rec.datas:
                             continue
                         d = base64.decodestring(brow_rec.datas)
-                        results.append((d,'odt'))
+                        extension = search_res['datas_fname'].split('.')[1]
+                        results.append((d,extension))
                         continue
                 result = self.create_single_pdf(cr, uid, [obj.id], data, report_xml, context)
                 try:
                     if attach and aname:
                         name = aname+'.'+result[1]
+                        datas = base64.encodestring(result[0])
                         pool.get('ir.attachment').create(cr, uid, {
                             'name': aname,
-                            'datas': base64.encodestring(result[0]),
+                            'datas': datas,
+                            'file_size': len(datas),
                             'datas_fname': name,
                             'res_model': self.table,
                             'res_id': obj.id,
@@ -558,13 +604,16 @@ class Aeroo_report(report_sxw):
                         )
                         cr.commit()
                 except Exception,e:
-                     self.logger(str(e), netsvc.LOG_ERROR)
+                     self.logger(_("Create attachment error!")+'\n'+str(e), netsvc.LOG_ERROR)
                 results.append(result)
 
         DC = netsvc.Service._services.get('openoffice')
         if results and len(results)==1:
             return results[0]
         elif results and DC:
+            not_odt = filter(lambda r: r[1]!='odt', results)
+            if not_odt:
+                raise osv.except_osv(_('Error!'), _('Unsupported combination of formats!'))
             results.reverse()
             data = results.pop()
             DC.putDocument(data[0])
@@ -579,8 +628,9 @@ class Aeroo_report(report_sxw):
     def create(self, cr, uid, ids, data, context=None):
         pool = pooler.get_pool(cr.dbname)
         ir_obj = pool.get('ir.actions.report.xml')
+        name = self.name.startswith('report.') and self.name[7:] or self.name
         report_xml_ids = ir_obj.search(cr, uid,
-                [('report_name', '=', self.name[7:])], context=context)
+                [('report_name', '=', name)], context=context)
         if report_xml_ids:
             report_xml = ir_obj.browse(cr, uid, report_xml_ids[0], context=context)
             report_xml.report_rml = None
@@ -588,16 +638,26 @@ class Aeroo_report(report_sxw):
             report_xml.report_sxw_content_data = None
             report_rml.report_sxw_content = None
             report_rml.report_sxw = None
+            copies_ids = []
+            if not report_xml.report_wizard and report_xml>1:
+                while(report_xml.copies):
+                    copies_ids.extend(ids)
+                    report_xml.copies -= 1
+            ids = copies_ids or ids
         else:
             title = ''
-            rml = tools.file_open(self.tmpl, subdir=None).read()
-            report_type= data.get('report_type', 'pdf')
-            class a(object):
-                def __init__(self, *args, **argv):
-                    for key,arg in argv.items():
-                        setattr(self, key, arg)
-            report_xml = a(title=title, report_type=report_type, report_rml_content=rml, name=title, attachment=False, header=self.header)
-
+            report_file = tools.file_open(self.tmpl)
+            try:
+                rml = report_file.read()
+                report_type= data.get('report_type', 'pdf')
+                class a(object):
+                    def __init__(self, *args, **argv):
+                        for key,arg in argv.items():
+                            setattr(self, key, arg)
+                report_xml = a(title=title, report_type=report_type, report_rml_content=rml, \
+                            name=title , attachment=False, header=self.header, process_sep=False)
+            finally:
+                report_file.close()
         report_type = report_xml.report_type
         if report_type in ['sxw','odt']:
             fnct = self.create_source_odt
@@ -610,7 +670,7 @@ class Aeroo_report(report_sxw):
         elif report_type=='aeroo':
             if report_xml.out_format.code in ['oo-pdf']:
                 fnct = self.create_source_pdf
-            elif report_xml.out_format.code in ['oo-odt','oo-ods','oo-doc','oo-xls','genshi-raw']:
+            elif report_xml.out_format.code in ['oo-odt','oo-ods','oo-doc','oo-xls','oo-csv','genshi-raw']:
                 fnct = self.create_source_odt
             else:
                 return super(Aeroo_report, self).create(cr, uid, ids, data, context)

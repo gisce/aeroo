@@ -7,7 +7,7 @@
 #
 # Copyright (C) 2008 Mirko Nasato <mirko@artofsolving.com>
 #                    Matthew Holloway <matthew@holloway.co.nz>
-#                    KN dati Ltd (www.kndati.lv) 
+#                    Alistek Ltd (www.alistek.com) 
 # Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl-2.1.html
 # - or any later version.
 #
@@ -22,6 +22,15 @@ DEFAULT_OPENOFFICE_PATH_AMD64 = [
     "C:\Program Files (x86)\OpenOffice.org 3\Basis\program",
     "C:\Program Files (x86)\OpenOffice.org 3\program",
     "C:\Program Files (x86)\OpenOffice.org 3\URE\bin"]
+
+################## For CSV documents #######################
+CSVFilterOptions = "59,34,76,1"
+# ASCII code of field separator
+# ASCII code of text delimiter
+# character set, use 0 for "system character set", 76 seems to be UTF-8
+# number of first line (1-based)
+# Cell format codes for the different columns (optional)
+############################################################
 
 from os.path import abspath
 from os.path import isfile
@@ -106,12 +115,6 @@ class DocumentConverter:
             raise DocumentConversionException("Failed to connect to OpenOffice.org on host %s, port %s. %s" % (host, port, exception))
         except ConnectionSetupException, exception:
             raise DocumentConversionException("Not possible to accept on a local resource (%s)" % exception)
-        #self.desktop = self._context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", self._context)
-
-        #self.inputStream = self.serviceManager.createInstanceWithContext("com.sun.star.io.SequenceInputStream", self.localContext)
-        #self.inputStream.initialize((uno.ByteSequence(stdinBytes),))
-        #self.document = self.desktop.loadComponentFromURL('private:stream', "_blank", 0, self._toProperties(InputStream = self.inputStream))
-        #self.inputStream.closeInput()
 
     def putDocument(self, data):
         try:
@@ -134,15 +137,7 @@ class DocumentConverter:
             pass
         outputStream = OutputStreamWrapper(False)
         try:
-            self.document.storeToURL('private:stream', self._toProperties(OutputStream = outputStream, FilterName = filter_name))
-            #if output=='pdf':
-            #    self.document.storeToURL('private:stream', self._toProperties(OutputStream = outputStream, FilterName = "writer_pdf_Export"))
-            #elif output=='doc':
-            #    self.document.storeToURL('private:stream', self._toProperties(OutputStream = outputStream, FilterName = "MS Word 97"))
-            #elif output=='xls':
-            #    self.document.storeToURL('private:stream', self._toProperties(OutputStream = outputStream, FilterName = "MS Excel 97"))
-            #else:
-            #    self.document.storeToURL('private:stream', self._toProperties(OutputStream = outputStream))
+            self.document.storeToURL('private:stream', self._toProperties(OutputStream = outputStream, FilterName = filter_name, FilterOptions=CSVFilterOptions))
         except IOException, e:
             print ("IOException during conversion: %s - %s" % (e.ErrCode, e.Message))
             outputStream.close()
@@ -169,12 +164,12 @@ class DocumentConverter:
             search = self.document.createSearchDescriptor()
             search.SearchString = placeholder_text
             found = self.document.findFirst( search )
-            while found:
-                try:
-                    found.insertDocumentFromURL('private:stream', self._toProperties(InputStream = subStream, FilterName = "writer8"))
-                except Exception, ex:
-                    print (_("Error inserting file %s on the OpenOffice document: %s") % (subreport, ex))
-                found = self.document.findNext(found, search)
+            #while found:
+            try:
+                found.insertDocumentFromURL('private:stream', self._toProperties(InputStream = subStream, FilterName = "writer8"))
+            except Exception, ex:
+                print (_("Error inserting file %s on the OpenOffice document: %s") % (subreport, ex))
+            #found = self.document.findNext(found, search)
 
             os.unlink(subreport)
 

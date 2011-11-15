@@ -1,6 +1,7 @@
+# -*- encoding: utf-8 -*-
 ##############################################################################
 #
-# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2009-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -29,20 +30,22 @@
 #
 ##############################################################################
 
-{
-    'name': 'Aeroo Reports - Print Screen Addon',
-    'version': '1.0',
-    'category': 'Generic Modules/Aeroo Reporting',
-    'description': """
-Replaces original OpenERP's "Printscreen List" report. This report produces ODF spreadsheet file (ods) with all fields visible on the view. This is useful report for rapid reporting on OpenERP's data.
+from osv import osv
+from tools.translate import _
 
-Using report_aeroo_ooo OpenERP module by Alistek, you can set output to one of these (xls, pdf, csv) formats.
-""",
-    'author': 'Alistek Ltd',
-    'website': 'http://www.alistek.com',
-    'depends': ['base','report_aeroo'],
-    "init_xml" : [],
-    'update_xml': ['data/report_aeroo_printscreen_data.xml'],
-    'installable': True,
-    'active': False,
-}
+__all__ = [
+    'check_deps',
+]
+
+def check_deps(check_list):
+    error = False
+    import_errors = []
+    for imp in check_list:
+        try:
+            exec imp in {}
+        except ImportError,e:
+            error = True
+            import_errors.append(str(e))
+    if error:
+        raise osv.except_osv(_('Warning!')+' '+_('Unmet python dependencies!'), '\n'.join(import_errors))
+

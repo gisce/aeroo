@@ -19,7 +19,7 @@
         <field eval="'action'" name="key"/>
         <field eval="'client_print_multi'" name="key2"/>
         <field eval="['res.partner']" name="models"/>
-        <field name="name">sample_report</field>
+        <field name="name">Sample Report</field>
         <field eval="'ir.actions.report.xml,'+str(aeroo_sample_report_id)" name="value"/>
         <field eval="True" name="isobject"/>
         <field eval="True" name="replace"/>

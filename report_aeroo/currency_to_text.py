@@ -2,7 +2,7 @@
 # -*- coding: utf8 -*-
 
 ###########################################################
-# Developed by Kaspars Vilkens - KN dati Ltd. (c) 2009
+# Developed by Kaspars Vilkens - Alistek Ltd (c) 2011
 #     pep-8, unicode and doctests by Paul Stevens, paul@nfg.nl, 2010
 #
 # Supported currencies: LVL, EUR, USD, UAH

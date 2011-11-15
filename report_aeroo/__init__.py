@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek, SIA. (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2009-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,6 +29,20 @@
 #
 ##############################################################################
 
+import aeroolib
+from genshi.template import NewTextTemplate
+
+check_list = [
+    'import aeroolib',
+    'import genshi',
+    'from genshi.template import NewTextTemplate',
+    'from xml.dom import minidom',
+]
+
+from check_deps import check_deps
+check_deps(check_list)
+
+import translate
 import report_xml
 import report_aeroo
 import wizard

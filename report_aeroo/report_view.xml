@@ -13,15 +13,15 @@
                         <field name="name" select="1"/>
                         <field name="model" select="1"/>
                         <field name="type" select="1" invisible="1"/>
-
                         <field name="report_name" select="1"/>
                         <field name="usage"/>
+                        <field name="copies" attrs="{'invisible': [('report_name','in',['printscreen.list'])]}"/>
+                        <field name="report_wizard" attrs="{'invisible': [('report_name','in',['printscreen.list'])]}"/>
                         <field name="report_type" invisible="1"/>
                     </group>
-                    <group col="6" colspan="4">
+                    <group colspan="4">
                         <field name="in_format" required="1" on_change="change_input_format(in_format)"/>
                         <field name="out_format" required="1" domain="[('compatible_types','=',in_format)]"/>
-                        <field name="content_fname"/>
                     </group>
 
                     <notebook colspan="4">
@@ -71,7 +71,9 @@
                         </page>
                         <page string="Advanced">
                             <group colspan="4" col="6">
+                                <field name="content_fname"/>
                                 <field name="preload_mode" attrs="{'invisible': ['|',('in_format','=','genshi-raw'),('tml_source','=','parser')]}"/>
+                                <field name="fallback_false"/>
                                 <field name="active" select="1"/>
                             </group>
                         </page>
@@ -125,6 +127,40 @@
             </field>
         </record>
 
+        <record id="act_aeroo_print_actions_view_form" model="ir.ui.view">
+            <field name="name">aeroo.print_actions.form</field>
+            <field name="model">aeroo.print_actions</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="Printing Options">
+                    <field name="out_format" colspan="4"/>
+                    <field name="copies" colspan="4"/>
+                    <group col="4" colspan="4" fill="0">
+                        <button icon="gtk-cancel" special="cancel" string="_Cancel" type="object"/>
+                        <button icon="gtk-print" name="to_print" string="_Print" type="object"/>
+                    </group>
+                </form>
+            </field>
+        </record>
+
+        <record id="act_aeroo_print_by_action_view_form" model="ir.ui.view">
+            <field name="name">aeroo.print_by_action.form</field>
+            <field name="model">aeroo.print_by_action</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="Test the report">
+                    <group col="4" colspan="4" fill="0">
+                        <field name="name" colspan="4" height="20"/>
+                        <field name="object_ids" colspan="4" default_focus="1"/>
+                   </group>
+                    <group col="4" colspan="4" fill="0">
+                        <button icon="gtk-print" name="to_print" string="Print" type="object"/>
+                        <button icon="gtk-close" special="cancel" string="Close" type="object"/>
+                    </group>
+                </form>
+            </field>
+        </record>
+
         <record id="view_company_form1" model="ir.ui.view">
             <field name="name">res.company.form</field>
             <field name="model">res.company</field>
@@ -167,6 +203,15 @@
 			<field name="view_mode">tree,form</field>
 		</record>
 
+        <record id="action_aeroo_print_by_action_wizard" model="ir.actions.act_window">
+            <field name="name">Test the report</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">aeroo.print_by_action</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
 	<act_window name="Translations"
 		domain="[('type', '=', 'report'),('res_id', '=', active_id)]"
 		view_type="form"
@@ -192,6 +237,14 @@
 
     <wizard string="Add Print Button" model="ir.actions.report.xml" name="aeroo.report_actions" menu="True" id="wizard_oo_report_actions" />
     <wizard string="Remove Print Button" model="ir.actions.report.xml" name="aeroo.report_actions_remove" menu="True" id="wizard_oo_report_actions_remove" />
+
+   <act_window name="Test the report"
+        res_model="aeroo.print_by_action"
+        src_model="ir.actions.report.xml"
+        view_mode="form"
+        target="new"
+        key2="client_action_multi"
+        id="action_aeroo_print_by_action_window"/>
 
     <function model="ir.actions.report.xml" name="_set_auto_false"/>
 
