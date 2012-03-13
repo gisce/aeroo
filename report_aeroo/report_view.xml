@@ -112,9 +112,9 @@
                     <group col="10" colspan="4">
                         <field name="name"/>
                         <field name="model"/>
-                        <field name="type"/>
                         <field name="in_format"/>
                         <field name="out_format"/>
+                        <field name="active"/>
                     </group>
                     <newline/>
                     <group expand="0" string="Group By" colspan="4">
@@ -257,6 +257,7 @@
         <field name="view_type">form</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('report_type','=','aeroo')]</field>
+        <field name="context">{'default_report_type': 'aeroo'}</field>
         <field name="view_id" ref="act_aeroo_report_xml_view_tree"/>
         <field name="search_view_id" ref="act_aeroo_report_xml_search_view"/>
     </record>
@@ -269,7 +270,7 @@
     </record>
 
     <record model="ir.actions.act_window.view" id="act_aeroo_report_xml_form_view">
-        <field name="sequence" eval="1"/>
+        <field name="sequence" eval="2"/>
         <field name="view_mode">form</field>
         <field name="view_id" ref="act_report_xml_view1"/>
         <field name="act_window_id" ref="action_aeroo_report_xml_tree"/>

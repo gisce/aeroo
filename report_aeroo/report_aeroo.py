@@ -1,8 +1,7 @@
 # -*- encoding: utf-8 -*-
-
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2009-2012 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 # Copyright (C) 2009  Domsense s.r.l.                                   
 #
@@ -403,7 +402,8 @@ class Aeroo_report(report_sxw):
                                       'next':self._next})
 
         user_name = pool.get('res.users').browse(cr, uid, uid, {}).name
-        model_id = pool.get('ir.model').search(cr, uid, [('model','=',data['model'])])[0]
+        #model_id = pool.get('ir.model').search(cr, uid, [('model','=',data['model'])])[0]
+        model_id = pool.get('ir.model').search(cr, uid, [('model','=',context['active_model'])])[0]
         model_name = pool.get('ir.model').browse(cr, uid, model_id).name
 
         #basic = Template(source=None, filepath=odt_path)
@@ -420,11 +420,14 @@ class Aeroo_report(report_sxw):
 
         try:
             data = basic.generate(**oo_parser.localcontext).render().getvalue()
+        except osv.except_osv, e:
+            raise
         except Exception, e:
             tb_s = reduce(lambda x, y: x+y, traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
             self.logger(_("Report generation error!")+'\n'+tb_s, netsvc.LOG_ERROR)
             for sub_report in self.oo_subreports:
-                os.unlink(sub_report)
+                if os.path.isfile(sub_report):
+                    os.unlink(sub_report)
             raise Exception(_("Aeroo Reports: Error while generating the report."), e, str(e), _("For more reference inspect error logs."))
 
         ######### OpenOffice extras #########
@@ -626,6 +629,7 @@ class Aeroo_report(report_sxw):
 
     # override needed to intercept the call to the proper 'create' method
     def create(self, cr, uid, ids, data, context=None):
+        data.setdefault('model', context.get('active_model',False))
         pool = pooler.get_pool(cr.dbname)
         ir_obj = pool.get('ir.actions.report.xml')
         name = self.name.startswith('report.') and self.name[7:] or self.name

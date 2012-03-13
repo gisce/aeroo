@@ -63,7 +63,7 @@ class report_actions_remove_wizard(wizard.interface):
             pool.get('ir.actions.act_window').unlink(cr, uid, data['report_action_id'], context=context)
         else:
             event_id = pool.get('ir.values').search(cr, uid, [('value','=','ir.actions.report.xml,%d' % data['id'])])[0]
-            res = ir.ir_del(cr, uid, event_id)
+            res = ir_del(cr, uid, event_id)
         return {}
 
     def _check(self, cr, uid, data, context):

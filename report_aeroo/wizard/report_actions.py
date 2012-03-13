@@ -73,7 +73,7 @@ class report_actions_wizard(wizard.interface):
     def _do_action(self, cr, uid, data, context):
         pool = pooler.get_pool(cr.dbname)
         report = pool.get(data['model']).browse(cr, uid, data['id'], context=context)
-        res = ir.ir_set(cr, uid, 'action', 'client_print_multi', report.report_name, [report.model], 'ir.actions.report.xml,%d' % data['id'], isobject=True)
+        res = ir_set(cr, uid, 'action', 'client_print_multi', report.report_name, [report.model], 'ir.actions.report.xml,%d' % data['id'], isobject=True)
         if report.report_wizard:
             report._set_report_wizard()
         return {'value_id':res[0]}

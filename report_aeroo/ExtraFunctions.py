@@ -43,6 +43,7 @@ from report import report_sxw
 from tools.translate import _
 import netsvc
 from tools.safe_eval import safe_eval as eval
+from aeroolib.plugins.opendocument import _filter
 
 class ExtraFunctions(object):
     """ This class contains some extra functions which
@@ -91,7 +92,15 @@ class ExtraFunctions(object):
             'report_xml': self._get_report_xml(),
             'get_log': self._perm_read(self.cr, self.uid),
             'get_selection_items': self._get_selection_items(),
+            '__filter': self.__filter, # Don't use in the report template!
         }
+
+    def __filter(self, val):
+        if isinstance(val, osv.orm.browse_null):
+            return ''
+        elif isinstance(val, osv.orm.browse_record):
+            return val.name_get({'lang':self._get_lang()})[0][1]
+        return _filter(val)
 
     def _perm_read(self, cr, uid):
         def get_log(obj, field=None):

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <openerp>
-    <data noupdate="1">
+    <data noupdate="0">
 
 	    <record model="oo.config" id="oo_con_config">
 		    <field name="host">localhost</field>

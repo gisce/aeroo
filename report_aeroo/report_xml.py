@@ -136,9 +136,9 @@ class report_xml(osv.osv):
             return None
 
     def delete_report_service(self, name):
-        name = 'report.%s' % name
-        if netsvc.Service.exists( name ):  # change for OpenERP 6.0 - Service class usage
-            netsvc.Service.remove( name ) # change for OpenERP 6.0 - Service class usage
+        service_name = 'report.%s' % name
+        if netsvc.Service.exists( service_name ):  # change for OpenERP 6.0 - Service class usage
+            netsvc.Service.remove( service_name ) # change for OpenERP 6.0 - Service class usage
 
     def register_report(self, cr, name, model, tmpl_path, parser):
         name = 'report.%s' % name
@@ -146,10 +146,18 @@ class report_xml(osv.osv):
             netsvc.Service.remove( name ) # change for OpenERP 6.0 - Service class usage
         Aeroo_report(cr, name, model, tmpl_path, parser=parser)
 
-    def unregister_report(self, name):
-        name = 'report.%s' % name
-        if netsvc.Service.exists( name ):
-            netsvc.Service.remove( name )
+    def unregister_report(self, cr, name):
+        service_name = 'report.%s' % name
+        if netsvc.Service.exists( service_name ):
+            netsvc.Service.remove( service_name )
+        cr.execute("SELECT * FROM ir_act_report_xml WHERE report_name = %s and active = true ORDER BY id", (name,))
+        report = cr.dictfetchall()[-1]
+        parser=rml_parse
+        if report['parser_state']=='loc' and report['parser_loc']:
+            parser=self.load_from_file(report['parser_loc'], cr.dbname, report['id']) or parser
+        elif report['parser_state']=='def' and report['parser_def']:
+            parser=self.load_from_source("from report import report_sxw\n"+report['parser_def']) or parser
+        self.register_report(cr, report['report_name'], report['model'], report['report_rml'], parser)
 
     def register_all(self, cr):
         super(report_xml, self).register_all(cr)
@@ -306,7 +314,7 @@ class report_xml(osv.osv):
                 ir_value_ids = self.pool.get('ir.values').search(cr, uid, [('value','=','ir.actions.report.xml,%s' % r['id'])])
                 if ir_value_ids:
                     self.pool.get('ir.values').unlink(cr, uid, ir_value_ids)
-                    self.unregister_report(r['report_name'])
+                    self.unregister_report(cr, r['report_name'])
         self.pool.get('ir.model.data')._unlink(cr, uid, 'ir.actions.report.xml', ids)
         ####################################
         res = super(report_xml, self).unlink(cr, uid, ids, context)
@@ -384,7 +392,7 @@ class report_xml(osv.osv):
                 if vals.get('active', record['active']):
                     self.register_report(cr, report_name, vals.get('model', record['model']), vals.get('report_rml', record['report_rml']), parser)
                 else:
-                    self.unregister_report(report_name)
+                    self.unregister_report(cr, report_name)
             except Exception, e:
                 print e
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))
