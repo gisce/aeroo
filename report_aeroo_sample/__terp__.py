@@ -1,7 +1,7 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
-#                    General contacts <info@alistek.com>
+# Copyright (c) 2008-2010 SIA "KN dati". (http://kndati.lv) All Rights Reserved.
+#                    General contacts <info@kndati.lv>
 #
 # WARNING: This program as such is intended to be used by professional
 # programmers who take the whole responsability of assessing all potential
@@ -30,8 +30,8 @@
 	"name" : "Aeroo Reports - Sample",
 	"version" : "1.0",
 	"description" : "Report sample for report_aeroo module",
-	"author" : "Alistek Ltd",
-    'website': 'http://www.alistek.com',
+	"author" : "KN dati, SIA",
+    'website': 'http://www.kndati.lv',
 	"depends" : ["base", "report_aeroo"],
 	"category" : "Generic Modules/Aeroo Reporting",
 	"init_xml" : [],

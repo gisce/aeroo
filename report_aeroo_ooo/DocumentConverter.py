@@ -15,6 +15,7 @@
 DEFAULT_OPENOFFICE_PORT = 8100
 
 ################## For CSV documents #######################
+# Field Separator (1), 	Text Delimiter (2), 	Character Set (3), 	Number of First Line (4)
 CSVFilterOptions = "59,34,76,1"
 # ASCII code of field separator
 # ASCII code of text delimiter
@@ -27,7 +28,10 @@ from os.path import abspath
 from os.path import isfile
 from os.path import splitext
 import sys
-from StringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 import uno
 import unohelper
@@ -38,6 +42,7 @@ from com.sun.star.beans import UnknownPropertyException
 from com.sun.star.lang import IllegalArgumentException
 from com.sun.star.io import XOutputStream
 from com.sun.star.io import IOException
+from com.sun.star.script import CannotConvertException
 from tools.translate import _
 
 class DocumentConversionException(Exception):
@@ -108,16 +113,19 @@ class DocumentConverter:
     def closeDocument(self):
         self.document.close(True)
 
-    def saveByStream(self, filter_name=None):
+    def saveByStream(self, filter_name=None, filter_options=CSVFilterOptions):
         try:
             self.document.refresh()
         except AttributeError, e: # ods document does not support refresh
             pass
         outputStream = OutputStreamWrapper(False)
         try:
-            self.document.storeToURL('private:stream', self._toProperties(OutputStream = outputStream, FilterName = filter_name, FilterOptions=CSVFilterOptions))
+            self.document.storeToURL('private:stream', self._toProperties(OutputStream = outputStream, FilterName = filter_name, FilterOptions=filter_options))
         except IOException, e:
             print ("IOException during conversion: %s - %s" % (e.ErrCode, e.Message))
+            outputStream.close()
+        except CannotConvertException, e:
+            print ("CannotConvertException during %s phase:\n%s" % (e.ErrCode, e.Message))
             outputStream.close()
 
         openDocumentBytes = outputStream.data.getvalue()

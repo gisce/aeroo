@@ -1,6 +1,7 @@
+# -*- encoding: utf-8 -*-
 ##############################################################################
 #
-# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2012 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -12,8 +13,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,17 +30,16 @@
 #
 ##############################################################################
 
-{
-	"name" : "Aeroo Reports - Sample",
-	"version" : "1.0",
-	"description" : "Report sample for report_aeroo module",
-	"author" : "Alistek Ltd",
+{ 
+    'name': 'Aeroo Reports - Poweremail Addon',
+    'version': '1.0',
+    'category': 'Generic Modules/Aeroo Reporting',
+    'description': "",
+    'author': 'Alistek Ltd',
     'website': 'http://www.alistek.com',
-	"depends" : ["base", "report_aeroo"],
-	"category" : "Generic Modules/Aeroo Reporting",
-	"init_xml" : [],
-	"demo_xml" : [],
-	"update_xml" : ["report/report_sample.xml"],
-	"installable": True
+    'depends': ['base','report_aeroo','poweremail'],
+    "init_xml" : [],
+    'update_xml': ["report_aeroo_poweremail_view.xml"],
+    'installable': True,
+    'active': False,
 }
-

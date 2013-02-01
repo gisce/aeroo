@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2012 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -128,11 +128,12 @@ class report_xml(osv.osv):
         expected_class = 'Parser'
         context = {'Parser':None}
         try:
-            exec source in context
+            exec source.replace('\r','') in context
             return context['Parser']
         except SyntaxError, e:
             raise osv.except_osv(_('Syntax Error !'), e)
         except Exception, e:
+            print e
             return None
 
     def delete_report_service(self, name):
@@ -232,9 +233,21 @@ class report_xml(osv.osv):
 
     def _get_in_mimetypes(self, cr, uid, context={}):
         obj = self.pool.get('report.mimetypes')
-        ids = obj.search(cr, uid, [('filter_name','=',False)], context=context)
+        domain = context.get('allformats') and [] or [('filter_name','=',False)]
+        ids = obj.search(cr, uid, domain, context=context)
         res = obj.read(cr, uid, ids, ['code', 'name'], context)
         return [(r['code'], r['name']) for r in res] + [('','')]
+
+    def _get_xml_id(self, cr, uid, ids, *args, **kwargs):
+        model_data_obj = self.pool.get('ir.model.data')
+        data_ids = model_data_obj.search(cr, uid, [('model', '=', self._name), ('res_id', 'in', ids)])
+        data_results = model_data_obj.read(cr, uid, data_ids, ['module', 'name', 'res_id'])
+        result = {}
+        for id in ids:
+            result[id] = False
+        for record in data_results:
+            result[record['res_id']] = '%(module)s.%(name)s' % record
+        return result
 
     _columns = {
         'charset':fields.selection(_get_encodings, string='Charset', required=True),
@@ -271,6 +284,8 @@ class report_xml(osv.osv):
         'report_wizard':fields.boolean('Report Wizard'),
         'copies': fields.integer('Number of copies'),
         'fallback_false':fields.boolean('Disable format fallback'),
+        'xml_id': fields.function(_get_xml_id, type='char', size=128, string="XML ID",
+                                  method=True, help="ID of the report defined in xml file"),
         
     }
 
@@ -291,7 +306,8 @@ class report_xml(osv.osv):
             defaults = self.default_get(cr, user, exclude_fields, context=context)
             for r in res:
                 for exf in exclude_fields:
-                    r[exf] = defaults.get(exf, False)
+                    if exf!='id':
+                        r[exf] = defaults.get(exf, False)
         ####################################################################################
         return res
 
@@ -401,6 +417,15 @@ class report_xml(osv.osv):
         res = super(report_xml, self).write(cr, user, ids, vals, context)
         return res
 
+    def copy(self, cr, uid, id, default=None, context=None):
+        record = self.pool.get('ir.actions.report.xml').browse(cr, uid, id, context=context)
+        default = {
+                'name':record.name+" (copy)",
+                'report_name':record.report_name+"_copy",
+        }
+        res_id = super(report_xml, self).copy(cr, uid, id, default, context)
+        return res_id
+
     def _set_report_wizard(self, cr, uid, ids, context=None):
         id = isinstance(ids, list) and ids[0] or ids
         ir_values_obj = self.pool.get('ir.values')
@@ -458,6 +483,7 @@ class report_xml(osv.osv):
             ids = self.search(cr, uid, [('report_type','=','aeroo'),('auto','=','True')])
         for id in ids:
             self.write(cr, uid, id, {'auto':False})
+        return True
 
     def _get_default_outformat(self, cr, uid, context):
         obj = self.pool.get('report.mimetypes')
@@ -468,13 +494,14 @@ class report_xml(osv.osv):
         'tml_source': 'database',
         'in_format' : 'oo-odt',
         'out_format' : _get_default_outformat,
-        'charset': 'ascii',
+        'charset': 'utf_8',
         'styles_mode' : 'default',
         'preload_mode': 'static',
         'parser_state': 'default',
         'parser_def': """class Parser(report_sxw.rml_parse):
     def __init__(self, cr, uid, name, context):
         super(Parser, self).__init__(cr, uid, name, context)
+        self.context = context
         self.localcontext.update({})""",
         'active' : True,
         'copies': 1,

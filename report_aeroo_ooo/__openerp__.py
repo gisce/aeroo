@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 ##############################################################################
 #
-# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2013 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -32,7 +32,7 @@
 
 { 
     'name': 'Aeroo Reports - OpenOffice Helper Addon',
-    'version': '1.0',
+    'version': '1.1',
     'category': 'Generic Modules/Aeroo Reporting',
     'description': """
 Aeroo Reports OpenOffice.org helper adds following features:
@@ -49,6 +49,7 @@ odt -> doc
 ods -> pdf
 ods -> xls
 ods -> csv
+ods -> dbf NOTE: available only if installed libreoffice-base
 """,
     'author': 'Alistek Ltd',
     'website': 'http://www.alistek.com',

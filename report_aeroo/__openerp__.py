@@ -3,7 +3,7 @@
 #                                                                       
 # Copyright (C) 2009  Domsense s.r.l.                                   
 # @authors: Simone Orsi																	       
-# Copyright (C) 2009-2011  Alistek Ltd                                  
+# Copyright (C) 2009-2013  Alistek Ltd                                  
 #                                                                       
 #This program is free software: you can redistribute it and/or modify   
 #it under the terms of the GNU General Public License as published by   
@@ -24,7 +24,7 @@
 
 {
     'name': 'Aeroo Reports',
-    'version': '1.0',
+    'version': '1.1',
     'category': 'Generic Modules/Aeroo Reporting',
     'description': """
 Aeroo Reports for OpenERP is a comprehensive reporting engine based on Aeroo Library.
@@ -69,7 +69,7 @@ Reporting engine features:
     'website': 'http://www.alistek.com',
     'depends': ['base'],
     "init_xml" : [],
-    'update_xml': ["report_view.xml", "data/report_aeroo_data.xml", "security/ir.model.access.csv"],
+    'update_xml': ["installer.xml", "report_view.xml", "data/report_aeroo_data.xml", "security/ir.model.access.csv"],
     'installable': True,
     'active': False,
 }

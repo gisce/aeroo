@@ -35,6 +35,13 @@
 		    <field name="filter_name">MS Excel 97</field>
 	    </record>
 
+	    <record model="report.mimetypes" id="report_mimetypes_xls_dbf" >
+		    <field name="name">dBASE (.dbf)</field>
+		    <field name="code">oo-dbf</field>
+		    <field name="compatible_types">oo-ods</field>
+		    <field name="filter_name">dBase</field>
+	    </record>
+
 	    <record model="report.mimetypes" id="report_mimetypes_csv_ods" >
 		    <field name="name">Text CSV (.csv)</field>
 		    <field name="code">oo-csv</field>
