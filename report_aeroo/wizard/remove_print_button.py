@@ -29,7 +29,6 @@
 #
 ##############################################################################
 
-import wizard
 import pooler
 from tools.translate import _
 from osv import osv

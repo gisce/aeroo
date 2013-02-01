@@ -1,6 +1,7 @@
+# -*- encoding: utf-8 -*-
 ##############################################################################
 #
-# Copyright (c) 2008-2012 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2013 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -29,8 +30,4 @@
 #
 ##############################################################################
 
-import add_print_button
-import remove_print_button
-import report_print_actions
-import report_print_by_action
-import report_import_wizard
+import report_aeroo_poweremail

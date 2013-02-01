@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2012 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -91,7 +91,7 @@ class aeroo_config_installer(osv.osv_memory):
 
     def check(self, cr, uid, ids, context=None):
         config_obj = self.pool.get('oo.config')
-        data = self.read(cr, uid, ids)[0]
+        data = self.read(cr, uid, ids, ['host','port'])[0]
         del data['id']
         config_id = config_obj.search(cr, 1, [], context=context)
         if config_id:

@@ -2,7 +2,7 @@
 
 ##############################################################################
 #
-# Copyright (c) 2009-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2009-2012 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 # Copyright (C) 2009  Domsense s.r.l.                                   
 #
@@ -106,27 +106,31 @@ class Aeroo_report(report_sxw):
         self.oo_subreports = []
         self.epl_images = []
         self.counters = {}
+        self.start_time = 0
 
         pool = pooler.get_pool(cr.dbname)
         ir_obj = pool.get('ir.actions.report.xml')
         name = name.startswith('report.') and name[7:] or name
-        report_xml_ids = ir_obj.search(cr, 1, [('report_name', '=', name)])
-        if report_xml_ids:
-            report_xml = ir_obj.browse(cr, 1, report_xml_ids[0])
-        else:
-            report_xml = False
-
-        if report_xml and report_xml.preload_mode == 'preload':
-            file_data = report_xml.report_sxw_content
-            if not file_data:
-                self.logger("template is not defined in %s (%s) !" % (name, table), netsvc.LOG_WARNING)
-                template_io = None
+        try:
+            report_xml_ids = ir_obj.search(cr, 1, [('report_name', '=', name)])
+            if report_xml_ids:
+                report_xml = ir_obj.browse(cr, 1, report_xml_ids[0])
             else:
-                template_io = StringIO()
-                template_io.write(base64.decodestring(file_data))
-                style_io=self.get_styles_file(cr, 1, report_xml)
-            if template_io:
-                self.serializer = OOSerializer(template_io, oo_styles=style_io)
+                report_xml = False
+
+            if report_xml and report_xml.preload_mode == 'preload':
+                file_data = report_xml.report_sxw_content
+                if not file_data:
+                    self.logger("template is not defined in %s (%s) !" % (name, table), netsvc.LOG_WARNING)
+                    template_io = None
+                else:
+                    template_io = StringIO()
+                    template_io.write(base64.decodestring(file_data))
+                    style_io=self.get_styles_file(cr, 1, report_xml)
+                if template_io:
+                    self.serializer = OOSerializer(template_io, oo_styles=style_io)
+        except Exception, e:
+            print e
 
     def getObjects_mod(self, cr, uid, ids, rep_type, context):
         table_obj = pooler.get_pool(cr.dbname).get(self.table)
@@ -295,7 +299,7 @@ class Aeroo_report(report_sxw):
                 style_io.write(base64.decodestring(style_content))
         return style_io
 
-    def create_genshi_raw_report(self, cr, uid, ids, data, report_xml, context=None, output='raw'):
+    def create_genshi_raw_report(self, cr, uid, ids, data, report_xml, context=None, output='raw', tmpl=False):
         def preprocess(data):
             self.epl_images.reverse()
             while self.epl_images:
@@ -303,23 +307,29 @@ class Aeroo_report(report_sxw):
                 data = data.replace('<binary_data>', img, 1)
             return data.replace('\n', '\r\n')
 
+        if not self.start_time:
+            self.start_time = time.time()
         if not context:
             context={}
         context = context.copy()
         objects = self.getObjects_mod(cr, uid, ids, report_xml.report_type, context)
         oo_parser = self.parser(cr, uid, self.name2, context=context)
-        oo_parser.objects = objects
-        self.set_xml_data_fields(objects, oo_parser) # Get/Set XML
-        oo_parser.localcontext['objects'] = objects
+        oo_parser.localcontext.update(context)
+        oo_parser.set_context(objects, data, ids, report_xml.report_type)
+        self.set_xml_data_fields(oo_parser.objects, oo_parser) # Get/Set XML
+        oo_parser.localcontext['objects'] = oo_parser.objects
         oo_parser.localcontext['data'] = data
         oo_parser.localcontext['user_lang'] = context.get('lang', False)
         if len(objects)>0:
             oo_parser.localcontext['o'] = objects[0]
         xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
         oo_parser.localcontext.update(xfunc.functions)
-        file_data = self.get_other_template(cr, uid, data, oo_parser) or report_xml.report_sxw_content # Get other Tamplate
+        file_data = tmpl or self.get_other_template(cr, uid, data, oo_parser) or report_xml.report_sxw_content # Get other Tamplate
+        if file_data=='False':
+            raise osv.except_osv(_('Error!'), _('No template found!'))
         ################################################
         if not file_data:
+            self.logger("End process %s (%s), elapsed time: %s" % (self.name, self.table, time.time() - self.start_time), netsvc.LOG_INFO) # debug mode
             return False, output
 
         oo_parser.localcontext['include_subreport'] = self._subreport(cr, uid, output='raw', aeroo_ooo=False, context=context)
@@ -335,6 +345,7 @@ class Aeroo_report(report_sxw):
 
         if report_xml.content_fname:
             output = report_xml.content_fname
+        self.logger("End process %s (%s), elapsed time: %s" % (self.name, self.table, time.time() - self.start_time), netsvc.LOG_INFO) # debug mode
         return data, output
 
     def create_aeroo_report(self, cr, uid, ids, data, report_xml, context=None, output='odt'):
@@ -348,13 +359,15 @@ class Aeroo_report(report_sxw):
             context['model'] = data['model']
             context['ids'] = ids
         
-        objects = not context.get('no_objects', False) and self.getObjects_mod(cr, uid, ids, report_xml.report_type, context) or []
+        objects = self.getObjects_mod(cr, uid, ids, report_xml.report_type, context) or []
         oo_parser = self.parser(cr, uid, self.name2, context=context)
+        oo_parser.localcontext.update(context)
+        oo_parser.set_context(objects, data, ids, report_xml.report_type)
 
-        oo_parser.objects = objects
+        #oo_parser.objects = objects
         self.set_xml_data_fields(objects, oo_parser) # Get/Set XML
 
-        oo_parser.localcontext['objects'] = objects
+        oo_parser.localcontext['objects'] = oo_parser.objects
         oo_parser.localcontext['data'] = data
         oo_parser.localcontext['user_lang'] = context.get('lang', False)
         if len(objects)==1:
@@ -362,15 +375,19 @@ class Aeroo_report(report_sxw):
         xfunc = ExtraFunctions(cr, uid, report_xml.id, oo_parser.localcontext)
         oo_parser.localcontext.update(xfunc.functions)
 
-        company_id = objects and 'company_id' in objects[0]._table._columns.keys() and \
-                                objects[0].company_id and objects[0].company_id.id or False # for object company usage
+        #company_id = objects and 'company_id' in objects[0]._table._columns.keys() and \
+        #                        objects[0].company_id and objects[0].company_id.id or False # for object company usage
+        company_id = False
         style_io=self.get_styles_file(cr, uid, report_xml, company=company_id, context=context)
 
         if report_xml.tml_source in ('file', 'database'):
+            if report_xml.report_sxw_content=='False':
+                raise osv.except_osv(_('Error!'), _('No template found!'))
             file_data = base64.decodestring(report_xml.report_sxw_content)
         else:
             file_data = self.get_other_template(cr, uid, data, oo_parser)
         if not file_data and not report_xml.report_sxw_content:
+            self.logger("End process %s (%s), elapsed time: %s" % (self.name, self.table, time.time() - self.start_time), netsvc.LOG_INFO) # debug mode
             return False, output
         #elif file_data:
         #    template_io = StringIO()
@@ -403,7 +420,7 @@ class Aeroo_report(report_sxw):
                                       'next':self._next})
 
         user_name = pool.get('res.users').browse(cr, uid, uid, {}).name
-        model_id = pool.get('ir.model').search(cr, uid, [('model','=',context['active_model'])])[0]
+        model_id = pool.get('ir.model').search(cr, uid, [('model','=',context.get('active_model', data['model']) or data['model'])])[0]
         model_name = pool.get('ir.model').browse(cr, uid, model_id).name
 
         #basic = Template(source=None, filepath=odt_path)
@@ -420,12 +437,15 @@ class Aeroo_report(report_sxw):
 
         try:
             data = basic.generate(**oo_parser.localcontext).render().getvalue()
+        except osv.except_osv, e:
+            raise
         except Exception, e:
             tb_s = reduce(lambda x, y: x+y, traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
             self.logger(_("Report generation error!")+'\n'+tb_s, netsvc.LOG_ERROR)
             for sub_report in self.oo_subreports:
-                os.unlink(sub_report)
-            raise Exception(_("Aeroo Reports: Error while generating the report."), e, str(e), _("For more reference inspect error logs."))
+                if os.path.isfile(sub_report):
+                    os.unlink(sub_report)
+            raise osv.except_osv(_('Aeroo Reports: Error while generating the report "%s".') % report_xml.name, e)
 
         ######### OpenOffice extras #########
         DC = netsvc.Service._services.get('openoffice')
@@ -436,7 +456,11 @@ class Aeroo_report(report_sxw):
                     if self.oo_subreports:
                         DC.insertSubreports(self.oo_subreports)
                         self.oo_subreports = []
-                    data = DC.saveByStream(report_xml.out_format.filter_name)
+                    if report_xml.out_format.code=='oo-dbf':
+                        data = DC.saveByStream(report_xml.out_format.filter_name, "78")
+                    else:
+                        data = DC.saveByStream(report_xml.out_format.filter_name)
+
                     DC.closeDocument()
                     #del DC
                 except Exception, e:
@@ -460,6 +484,7 @@ class Aeroo_report(report_sxw):
 
         if report_xml.content_fname:
             output = report_xml.content_fname
+        self.logger("End process %s (%s), elapsed time: %s" % (self.name, self.table, time.time() - self.start_time), netsvc.LOG_INFO) # debug mode
         return data, output
 
     # override needed to keep the attachments' storing procedure
@@ -527,20 +552,24 @@ class Aeroo_report(report_sxw):
                     if attach and aname:
                         name = aname+'.'+result[1]
                         datas = base64.encodestring(result[0])
+                        ctx = dict(context)
+                        ctx.pop('default_type', None)
                         pool.get('ir.attachment').create(cr, uid, {
                             'name': aname,
                             'datas': datas,
-                            'file_size': len(datas),
                             'datas_fname': name,
                             'res_model': self.table,
                             'res_id': obj.id,
-                            }, context=context
+                            'type': 'binary'
+                            }, context=ctx
                         )
                         cr.commit()
                 except Exception,e:
                      tb_s = reduce(lambda x, y: x+y, traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
                      netsvc.Logger().notifyChannel('report', netsvc.LOG_ERROR,str(e))
                 results.append(result)
+            if results and len(results)==1:
+                return results[0]
             if results:
                 not_pdf = filter(lambda r: r[1]!='pdf', results)
                 if not_pdf:
@@ -593,14 +622,16 @@ class Aeroo_report(report_sxw):
                     if attach and aname:
                         name = aname+'.'+result[1]
                         datas = base64.encodestring(result[0])
+                        ctx = dict(context)
+                        ctx.pop('default_type', None)
                         pool.get('ir.attachment').create(cr, uid, {
                             'name': aname,
                             'datas': datas,
-                            'file_size': len(datas),
                             'datas_fname': name,
                             'res_model': self.table,
                             'res_id': obj.id,
-                            }, context=context
+                            'type': 'binary'
+                            }, context=ctx
                         )
                         cr.commit()
                 except Exception,e:
@@ -626,6 +657,9 @@ class Aeroo_report(report_sxw):
 
     # override needed to intercept the call to the proper 'create' method
     def create(self, cr, uid, ids, data, context=None):
+        self.start_time = time.time()
+        self.logger("Start process %s (%s)" % (self.name, self.table), netsvc.LOG_INFO) # debug mode
+        data.setdefault('model', context.get('active_model',False))
         pool = pooler.get_pool(cr.dbname)
         ir_obj = pool.get('ir.actions.report.xml')
         name = self.name.startswith('report.') and self.name[7:] or self.name
@@ -675,7 +709,7 @@ class Aeroo_report(report_sxw):
             else:
                 return super(Aeroo_report, self).create(cr, uid, ids, data, context)
         else:
-            raise Exception('Unknown Report Type')
+            raise NotImplementedError(_('Unknown report type: %s') % report_type)
         return fnct(cr, uid, ids, data, report_xml, context)
 
 class ReportTypeException(Exception):

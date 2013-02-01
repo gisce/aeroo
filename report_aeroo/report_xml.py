@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2008-2011 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
+# Copyright (c) 2008-2012 Alistek Ltd (http://www.alistek.com) All Rights Reserved.
 #                    General contacts <info@alistek.com>
 #
 # WARNING: This program as such is intended to be used by professional
@@ -128,28 +128,37 @@ class report_xml(osv.osv):
         expected_class = 'Parser'
         context = {'Parser':None}
         try:
-            exec source in context
+            exec source.replace('\r','') in context
             return context['Parser']
         except SyntaxError, e:
             raise osv.except_osv(_('Syntax Error !'), e)
         except Exception, e:
+            print e
             return None
 
     def delete_report_service(self, name):
         name = 'report.%s' % name
-        if netsvc.Service.exists( name ):  # change for OpenERP 6.0 - Service class usage
-            netsvc.Service.remove( name ) # change for OpenERP 6.0 - Service class usage
+        if netsvc.Service.exists( name ):
+            netsvc.Service.remove( name )
 
     def register_report(self, cr, name, model, tmpl_path, parser):
         name = 'report.%s' % name
-        if netsvc.Service.exists( name ):  # change for OpenERP 6.0 - Service class usage
-            netsvc.Service.remove( name ) # change for OpenERP 6.0 - Service class usage
-        Aeroo_report(cr, name, model, tmpl_path, parser=parser)
-
-    def unregister_report(self, name):
-        name = 'report.%s' % name
         if netsvc.Service.exists( name ):
             netsvc.Service.remove( name )
+        Aeroo_report(cr, name, model, tmpl_path, parser=parser)
+
+    def unregister_report(self, cr, name):
+        service_name = 'report.%s' % name
+        if netsvc.Service.exists( service_name ):
+            netsvc.Service.remove( service_name )
+        cr.execute("SELECT * FROM ir_act_report_xml WHERE report_name = %s and active = true ORDER BY id", (name,))
+        report = cr.dictfetchall()[-1]
+        parser=rml_parse
+        if report['parser_state']=='loc' and report['parser_loc']:
+            parser=self.load_from_file(report['parser_loc'], cr.dbname, report['id']) or parser
+        elif report['parser_state']=='def' and report['parser_def']:
+            parser=self.load_from_source("from report import report_sxw\n"+report['parser_def']) or parser
+        self.register_report(cr, report['report_name'], report['model'], report['report_rml'], parser)
 
     def register_all(self, cr):
         super(report_xml, self).register_all(cr)
@@ -187,23 +196,24 @@ class report_xml(osv.osv):
 
     def _report_content(self, cursor, user, ids, name, arg, context=None):
         res = {}
-        aeroo_ids = self.search(cursor, user, [('report_type','=','aeroo')], context=context)
+        aeroo_ids = self.search(cursor, 1, [('report_type','=','aeroo'),('id','in',ids)], context=context)
         orig_ids = list(set(ids).difference(aeroo_ids))
-        res = super(report_xml, self)._report_content(cursor, user, orig_ids, name, arg, context)
-        for report in self.browse(cursor, user, aeroo_ids, context=context):
+        res = orig_ids and super(report_xml, self)._report_content(cursor, 1, orig_ids, name, arg, context) or {}
+        for report in self.read(cursor, 1, aeroo_ids, ['tml_source','report_type','report_sxw_content_data', 'report_sxw'], context=context):
             data = report[name + '_data']
-            if report.report_type=='aeroo' and report.tml_source=='file' or not data and report[name[:-8]]:
+            if report['report_type']=='aeroo' and report['tml_source']=='file' or not data and report[name[:-8]]:
                 fp = None
                 try:
                     fp = tools.file_open(report[name[:-8]], mode='rb')
-                    data = report.report_type=='aeroo' and base64.encodestring(fp.read()) or fp.read()
-                except:
+                    data = report['report_type']=='aeroo' and base64.encodestring(fp.read()) or fp.read()
+                except Exception, e:
+                    print e
                     fp = False
                     data = False
                 finally:
                     if fp:
                         fp.close()
-            res[report.id] = data
+            res[report['id']] = data
 
         return res
 
@@ -224,9 +234,24 @@ class report_xml(osv.osv):
 
     def _get_in_mimetypes(self, cr, uid, context={}):
         obj = self.pool.get('report.mimetypes')
-        ids = obj.search(cr, uid, [('filter_name','=',False)], context=context)
+        if context.get('allformats'):
+            domain = []
+        else:
+            domain = [('filter_name','=',False)]
+        ids = obj.search(cr, uid, domain, context=context)
         res = obj.read(cr, uid, ids, ['code', 'name'], context)
         return [('','')]+[(r['code'], r['name']) for r in res]
+
+    def _get_xml_id(self, cr, uid, ids, *args, **kwargs):
+        model_data_obj = self.pool.get('ir.model.data')
+        data_ids = model_data_obj.search(cr, uid, [('model', '=', self._name), ('res_id', 'in', ids)])
+        data_results = model_data_obj.read(cr, uid, data_ids, ['module', 'name', 'res_id'])
+        result = {}
+        for id in ids:
+            result[id] = False
+        for record in data_results:
+            result[record['res_id']] = '%(module)s.%(name)s' % record
+        return result
 
     _columns = {
         'charset':fields.selection(_get_encodings, string='Charset', required=True),
@@ -263,6 +288,8 @@ class report_xml(osv.osv):
         'report_wizard':fields.boolean('Report Wizard'),
         'copies': fields.integer('Number of copies'),
         'fallback_false':fields.boolean('Disable format fallback'),
+        'xml_id': fields.function(_get_xml_id, type='char', size=128, string="XML ID",
+                                  method=True, help="ID of the report defined in xml file"),
         
     }
 
@@ -281,9 +308,15 @@ class report_xml(osv.osv):
         ##### set default values for new model fields, that while not exist in database ####
         if exclude_fields:
             defaults = self.default_get(cr, user, exclude_fields, context=context)
-            for r in res:
+            if type(res)==list:
+                for r in res:
+                    for exf in exclude_fields:
+                        if exf!='id':
+                            r[exf] = defaults.get(exf, False)
+            else:
                 for exf in exclude_fields:
-                    r[exf] = defaults.get(exf, False)
+                    if exf!='id':
+                        res[exf] = defaults.get(exf, False)
         ####################################################################################
         return res
 
@@ -306,7 +339,8 @@ class report_xml(osv.osv):
                 ir_value_ids = self.pool.get('ir.values').search(cr, uid, [('value','=','ir.actions.report.xml,%s' % r['id'])])
                 if ir_value_ids:
                     self.pool.get('ir.values').unlink(cr, uid, ir_value_ids)
-                    self.unregister_report(r['report_name'])
+                    self.unregister_report(cr, r['report_name'])
+        self.pool.get('ir.model.data').unlink(cr, uid, ids, context=context)
         ####################################
         res = super(report_xml, self).unlink(cr, uid, ids, context)
         return res
@@ -383,7 +417,7 @@ class report_xml(osv.osv):
                 if vals.get('active', record['active']):
                     self.register_report(cr, report_name, vals.get('model', record['model']), vals.get('report_rml', record['report_rml']), parser)
                 else:
-                    self.unregister_report(report_name)
+                    self.unregister_report(cr, report_name)
             except Exception, e:
                 print e
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))
@@ -391,6 +425,15 @@ class report_xml(osv.osv):
 
         res = super(report_xml, self).write(cr, user, ids, vals, context)
         return res
+
+    def copy(self, cr, uid, id, default=None, context=None):
+        record = self.pool.get('ir.actions.report.xml').browse(cr, uid, id, context=context)
+        default = {
+                'name':record.name+" (copy)",
+                'report_name':record.report_name+"_copy",
+        }
+        res_id = super(report_xml, self).copy(cr, uid, id, default, context)
+        return res_id
 
     def _set_report_wizard(self, cr, uid, ids, context=None):
         id = isinstance(ids, list) and ids[0] or ids
@@ -449,6 +492,7 @@ class report_xml(osv.osv):
             ids = self.search(cr, uid, [('report_type','=','aeroo'),('auto','=','True')])
         for id in ids:
             self.write(cr, uid, id, {'auto':False})
+        return True
 
     def _get_default_outformat(self, cr, uid, context):
         obj = self.pool.get('report.mimetypes')
@@ -459,13 +503,14 @@ class report_xml(osv.osv):
         'tml_source': 'database',
         'in_format' : 'oo-odt',
         'out_format' : _get_default_outformat,
-        'charset': 'ascii',
+        'charset': 'utf_8',
         'styles_mode' : 'default',
         'preload_mode': 'static',
         'parser_state': 'default',
         'parser_def': """class Parser(report_sxw.rml_parse):
     def __init__(self, cr, uid, name, context):
         super(Parser, self).__init__(cr, uid, name, context)
+        self.context = context
         self.localcontext.update({})""",
         'active' : True,
         'copies': 1,
