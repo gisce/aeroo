@@ -251,6 +251,8 @@ class ExtraFunctions(object):
         return ''
 
     def _get_label(self, obj, field):
+        if not obj:
+            return ''
         try:
             if isinstance(obj, report_sxw.browse_record_list):
                 obj = obj[0]
@@ -325,7 +327,7 @@ class ExtraFunctions(object):
             return convert(res[index])
         return convert(len(res)==1 and res[0] or res)
 
-    def _asimage(self, field_value, rotate=None, size_x=None, size_y=None, uom='px'):
+    def _asimage(self, field_value, rotate=None, size_x=None, size_y=None, uom='px', hold_ratio=False):
         def size_by_uom(val, uom, dpi):
             if uom=='px':
                 result=str(val/dpi)+'in'

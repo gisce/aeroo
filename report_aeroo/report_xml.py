@@ -234,7 +234,7 @@ class report_xml(osv.osv):
             domain = [('filter_name','=',False)]
         ids = obj.search(cr, uid, domain, context=context)
         res = obj.read(cr, uid, ids, ['code', 'name'], context)
-        return [('','')]+[(r['code'], r['name']) for r in res]
+        return [(r['code'], r['name']) for r in res]
 
     def _get_xml_id(self, cr, uid, ids, *args, **kwargs):
         model_data_obj = self.pool.get('ir.model.data')
@@ -406,7 +406,6 @@ class report_xml(osv.osv):
                 self.delete_report_service(record['report_name'])
                 report_name = record['report_name']
 
-            res = super(report_xml, self).write(cr, user, ids, vals, context)
             try:
                 if vals.get('active', record['active']):
                     self.register_report(cr, report_name, vals.get('model', record['model']), vals.get('report_rml', record['report_rml']), parser)
@@ -415,6 +414,7 @@ class report_xml(osv.osv):
             except Exception, e:
                 print e
                 raise osv.except_osv(_('Report registration error !'), _('Report was not registered in system !'))
+            res = super(report_xml, self).write(cr, user, ids, vals, context)
             return res
 
         res = super(report_xml, self).write(cr, user, ids, vals, context)

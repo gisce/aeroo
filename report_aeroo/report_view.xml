@@ -76,7 +76,7 @@
                             <group colspan="4" col="6">
                                 <field name="content_fname"/>
                                 <field name="preload_mode" attrs="{'invisible': ['|',('in_format','=','genshi-raw'),('tml_source','=','parser')]}"/>
-                                <field name="fallback_false"/>
+                                <field name="fallback_false" attrs="{'invisible': [('in_format','=','genshi-raw')]}"/>
                                 <field name="active"/>
                                 <field name="xml_id" colspan="6"/>
                             </group>
