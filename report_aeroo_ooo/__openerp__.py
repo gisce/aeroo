@@ -57,5 +57,6 @@ ods -> csv
     "init_xml" : [],
     'update_xml': ["installer.xml", "report_view.xml", "data/report_aeroo_data.xml"],
     'installable': True,
+    "license" : "GPL-3 or any later version",
     'active': False,
 }

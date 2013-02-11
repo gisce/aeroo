@@ -240,7 +240,7 @@ class report_xml(osv.osv):
             domain = [('filter_name','=',False)]
         ids = obj.search(cr, uid, domain, context=context)
         res = obj.read(cr, uid, ids, ['code', 'name'], context)
-        return [('','')]+[(r['code'], r['name']) for r in res]
+        return [(r['code'], r['name']) for r in res]
 
     def _get_xml_id(self, cr, uid, ids, *args, **kwargs):
         model_data_obj = self.pool.get('ir.model.data')
