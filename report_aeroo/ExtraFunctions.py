@@ -332,7 +332,7 @@ class ExtraFunctions(object):
             if uom=='px':
                 result=str(val/dpi)+'in'
             elif uom=='cm':
-                result=str(val/dpi/2.54)+'in'
+                result=str(val/2.54)+'in'
             elif uom=='in':
                 result=str(val)+'in'
             return result

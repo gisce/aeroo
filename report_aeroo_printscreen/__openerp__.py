@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -40,6 +43,7 @@ Using report_aeroo_ooo OpenERP module by Alistek, you can set output to one of t
     'depends': ['base','report_aeroo'],
     "init_xml" : [],
     'update_xml': ['data/report_aeroo_printscreen_data.xml'],
+    "license" : "GPL-3 or any later version",
     'installable': True,
     'active': False,
 }

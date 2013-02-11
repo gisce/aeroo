@@ -70,6 +70,7 @@ Reporting engine features:
     'depends': ['base'],
     "init_xml" : [],
     'update_xml': ["installer.xml", "report_view.xml", "data/report_aeroo_data.xml", "security/ir.model.access.csv"],
+    "license" : "GPL-3 or any later version",
     'installable': True,
     'active': False,
 }

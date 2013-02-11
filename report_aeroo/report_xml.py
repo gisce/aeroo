@@ -196,23 +196,24 @@ class report_xml(osv.osv):
 
     def _report_content(self, cursor, user, ids, name, arg, context=None):
         res = {}
-        aeroo_ids = self.search(cursor, user, [('report_type','=','aeroo')], context=context)
+        aeroo_ids = self.search(cursor, 1, [('report_type','=','aeroo'),('id','in',ids)], context=context)
         orig_ids = list(set(ids).difference(aeroo_ids))
-        res = super(report_xml, self)._report_content(cursor, user, orig_ids, name, arg, context)
-        for report in self.browse(cursor, user, aeroo_ids, context=context):
+        res = orig_ids and super(report_xml, self)._report_content(cursor, 1, orig_ids, name, arg, context) or {}
+        for report in self.read(cursor, 1, aeroo_ids, ['tml_source','report_type','report_sxw_content_data', 'report_sxw'], context=context):
             data = report[name + '_data']
-            if report.report_type=='aeroo' and report.tml_source=='file' or not data and report[name[:-8]]:
+            if report['tml_source']=='file' or not data and report[name[:-8]]:
                 fp = None
                 try:
                     fp = tools.file_open(report[name[:-8]], mode='rb')
-                    data = report.report_type=='aeroo' and base64.encodestring(fp.read()) or fp.read()
-                except:
+                    data = report['report_type']=='aeroo' and base64.encodestring(fp.read()) or fp.read()
+                except Exception, e:
+                    print e
                     fp = False
                     data = False
                 finally:
                     if fp:
                         fp.close()
-            res[report.id] = data
+            res[report['id']] = data
 
         return res
 
@@ -236,7 +237,7 @@ class report_xml(osv.osv):
         domain = context.get('allformats') and [] or [('filter_name','=',False)]
         ids = obj.search(cr, uid, domain, context=context)
         res = obj.read(cr, uid, ids, ['code', 'name'], context)
-        return [(r['code'], r['name']) for r in res] + [('','')]
+        return [(r['code'], r['name']) for r in res]
 
     def _get_xml_id(self, cr, uid, ids, *args, **kwargs):
         model_data_obj = self.pool.get('ir.model.data')

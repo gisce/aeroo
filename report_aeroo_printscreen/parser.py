@@ -12,8 +12,11 @@
 #
 # This program is Free Software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
+#
+# This module is GPLv3 or newer and incompatible
+# with OpenERP SA "AGPL + Private Use License"!
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -44,7 +47,7 @@ class Parser(report_sxw.rml_parse):
         result = model.fields_view_get(cr, uid, view_type='tree', context=context)
         fields_type = dict(map(lambda name: (name, result['fields'][name]['type']), result['fields']))
         fields_order = self._parse_string(result['arch'])
-        rows = model.browse(cr, uid, ids, context=context)
+        rows = model.read(cr, uid, ids, context=context)
 
         self.localcontext.update({
             'screen_fields': fields_order,

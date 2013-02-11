@@ -40,6 +40,7 @@
     'depends': ['base','report_aeroo','poweremail'],
     "init_xml" : [],
     'update_xml': ["report_aeroo_poweremail_view.xml"],
+    "license" : "GPL-3 or any later version",
     'installable': True,
     'active': False,
 }
