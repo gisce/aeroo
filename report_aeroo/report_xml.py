@@ -105,10 +105,9 @@ class report_xml(osv.osv):
                 try:
                     fp = tools.file_open(report[name[:-8]], mode='rb')
                     data = base64.encodestring(fp.read())
+                    fp.close()
                 except:
                     data = False
-                if fp:
-                    fp.close()
             res[report.id] = data
         return res
 
